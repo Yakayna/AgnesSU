@@ -6,16 +6,27 @@ use anyhow::Result;
 use clap::{Args, Subcommand};
 use libc::{SYS_reboot, syscall};
 
-use crate::android::susfs::magic::{
-    CMD_SUSFS_ADD_OPEN_REDIRECT, CMD_SUSFS_ADD_SUS_KSTAT, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY,
-    CMD_SUSFS_ADD_SUS_MAP, CMD_SUSFS_ADD_SUS_PATH, CMD_SUSFS_ADD_SUS_PATH_LOOP,
-    CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING, CMD_SUSFS_ENABLE_LOG,
-    CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS, CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH,
-    CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG, CMD_SUSFS_SET_SDCARD_ROOT_PATH, CMD_SUSFS_SET_UNAME,
-    CMD_SUSFS_SHOW_ENABLED_FEATURES, CMD_SUSFS_SHOW_VARIANT, CMD_SUSFS_SHOW_VERSION,
-    CMD_SUSFS_UPDATE_SUS_KSTAT, ERR_CMD_NOT_SUPPORTED, KSU_INSTALL_MAGIC1, NEW_UTS_LEN,
-    SUSFS_ENABLED_FEATURES_SIZE, SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE, SUSFS_MAGIC,
-    SUSFS_MAX_LEN_PATHNAME, SUSFS_MAX_VARIANT_BUFSIZE, SUSFS_MAX_VERSION_BUFSIZE,
+use crate::android::susfs::{
+    api::{
+        ExternalDir, SusfsAvcLogSpoofing, SusfsEnabledFeatures, SusfsHideSusMnts, SusfsLog,
+        SusfsOpenRedirect, SusfsSpoofCmdline, SusfsSusKstat, SusfsSusMap, SusfsSusPath, SusfsUname,
+        SusfsVariant, SusfsVersion,
+    },
+    magic::{
+        CMD_SUSFS_ADD_OPEN_REDIRECT, CMD_SUSFS_ADD_SUS_KSTAT, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY,
+        CMD_SUSFS_ADD_SUS_MAP, CMD_SUSFS_ADD_SUS_PATH, CMD_SUSFS_ADD_SUS_PATH_LOOP,
+        CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING, CMD_SUSFS_ENABLE_LOG,
+        CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS, CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH,
+        CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG, CMD_SUSFS_SET_SDCARD_ROOT_PATH, CMD_SUSFS_SET_UNAME,
+        CMD_SUSFS_SHOW_ENABLED_FEATURES, CMD_SUSFS_SHOW_VARIANT, CMD_SUSFS_SHOW_VERSION,
+        CMD_SUSFS_UPDATE_SUS_KSTAT, ERR_CMD_NOT_SUPPORTED, KSU_INSTALL_MAGIC1, NEW_UTS_LEN,
+        SUSFS_ENABLED_FEATURES_SIZE, SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE, SUSFS_MAGIC,
+        SUSFS_MAX_LEN_PATHNAME, SUSFS_MAX_VARIANT_BUFSIZE, SUSFS_MAX_VERSION_BUFSIZE,
+    },
+    utils::{
+        copy_metadata_to_sus_kstat, fetch_metadata, handle_result, parse_or_default,
+        str_to_c_array, susfs_ctl,
+    },
 };
 
 #[derive(Subcommand, Debug)]
@@ -115,245 +126,6 @@ pub struct AddSusKstatStaticallyArgs {
     blocks: String,
     #[arg(default_value = "default")]
     blksize: String,
-}
-
-#[repr(C)]
-struct SusfsSusPath {
-    target_ino: u64,
-    target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    i_uid: u32,
-    err: i32,
-}
-
-impl Default for SusfsSusPath {
-    fn default() -> Self {
-        Self {
-            target_ino: 0,
-            target_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            i_uid: 0,
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-struct ExternalDir {
-    target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    is_inited: bool,
-    cmd: i32,
-    err: i32,
-}
-
-impl Default for ExternalDir {
-    fn default() -> Self {
-        Self {
-            target_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            is_inited: false,
-            cmd: 0,
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Default)]
-struct SusfsHideSusMnts {
-    enabled: bool,
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsSusKstat {
-    is_statically: bool,
-    target_ino: u64,
-    target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    spoofed_ino: u64,
-    spoofed_dev: u64,
-    spoofed_nlink: u32,
-    spoofed_size: i64,
-    spoofed_atime_tv_sec: i64,
-    spoofed_mtime_tv_sec: i64,
-    spoofed_ctime_tv_sec: i64,
-    spoofed_atime_tv_nsec: i64,
-    spoofed_mtime_tv_nsec: i64,
-    spoofed_ctime_tv_nsec: i64,
-    spoofed_blksize: u64,
-    spoofed_blocks: u64,
-    err: i32,
-}
-
-impl Default for SusfsSusKstat {
-    fn default() -> Self {
-        Self {
-            is_statically: false,
-            target_ino: 0,
-            target_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            spoofed_ino: 0,
-            spoofed_dev: 0,
-            spoofed_nlink: 0,
-            spoofed_size: 0,
-            spoofed_atime_tv_sec: 0,
-            spoofed_mtime_tv_sec: 0,
-            spoofed_ctime_tv_sec: 0,
-            spoofed_atime_tv_nsec: 0,
-            spoofed_mtime_tv_nsec: 0,
-            spoofed_ctime_tv_nsec: 0,
-            spoofed_blksize: 0,
-            spoofed_blocks: 0,
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-struct SusfsUname {
-    release: [u8; NEW_UTS_LEN + 1],
-    version: [u8; NEW_UTS_LEN + 1],
-    err: i32,
-}
-
-impl Default for SusfsUname {
-    fn default() -> Self {
-        Self {
-            release: [0; NEW_UTS_LEN + 1],
-            version: [0; NEW_UTS_LEN + 1],
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Default)]
-struct SusfsLog {
-    enabled: bool,
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsSpoofCmdline {
-    fake_cmdline_or_bootconfig: [u8; SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE],
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsOpenRedirect {
-    target_ino: u64,
-    target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    redirected_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    err: i32,
-}
-
-impl Default for SusfsOpenRedirect {
-    fn default() -> Self {
-        Self {
-            target_ino: 0,
-            target_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            redirected_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-struct SusfsSusMap {
-    target_pathname: [u8; SUSFS_MAX_LEN_PATHNAME],
-    err: i32,
-}
-
-impl Default for SusfsSusMap {
-    fn default() -> Self {
-        Self {
-            target_pathname: [0; SUSFS_MAX_LEN_PATHNAME],
-            err: 0,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Default)]
-struct SusfsAvcLogSpoofing {
-    enabled: bool,
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsEnabledFeatures {
-    enabled_features: [u8; SUSFS_ENABLED_FEATURES_SIZE],
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsVariant {
-    susfs_variant: [u8; SUSFS_MAX_VARIANT_BUFSIZE],
-    err: i32,
-}
-
-#[repr(C)]
-struct SusfsVersion {
-    susfs_version: [u8; SUSFS_MAX_VERSION_BUFSIZE],
-    err: i32,
-}
-
-fn susfs_ctl<T>(info: &mut T, cmd: u64) {
-    unsafe {
-        syscall(
-            SYS_reboot,
-            KSU_INSTALL_MAGIC1,
-            SUSFS_MAGIC,
-            cmd,
-            std::ptr::from_mut::<T>(info),
-        );
-    }
-}
-
-fn str_to_c_array<const N: usize>(s: &str, array: &mut [u8; N]) {
-    let bytes = s.as_bytes();
-    let len = bytes.len().min(N - 1);
-    array[..len].copy_from_slice(&bytes[..len]);
-    array[len] = 0;
-}
-
-fn fetch_metadata(path: &str) -> Result<fs::Metadata> {
-    fs::metadata(path).map_err(|e| {
-        anyhow::format_err!("[-] Failed to get metadata from path: '{path}', error: {e}",)
-    })
-}
-
-fn copy_metadata_to_sus_kstat(info: &mut SusfsSusKstat, md: &fs::Metadata) {
-    info.spoofed_ino = md.ino();
-    info.spoofed_dev = md.dev();
-    info.spoofed_nlink = md.nlink() as u32;
-    info.spoofed_size = md.size() as i64;
-    info.spoofed_atime_tv_sec = md.atime();
-    info.spoofed_mtime_tv_sec = md.mtime();
-    info.spoofed_ctime_tv_sec = md.ctime();
-    info.spoofed_atime_tv_nsec = md.atime_nsec();
-    info.spoofed_mtime_tv_nsec = md.mtime_nsec();
-    info.spoofed_ctime_tv_nsec = md.ctime_nsec();
-    info.spoofed_blksize = md.blksize();
-    info.spoofed_blocks = md.blocks();
-}
-
-fn handle_result(err: i32, cmd: u64) -> Result<()> {
-    if err == ERR_CMD_NOT_SUPPORTED {
-        return Err(anyhow::format_err!(
-            "unsupported susfs operation, cmd: 0x{cmd:x}"
-        ));
-    }
-    if err != 0 && err != ERR_CMD_NOT_SUPPORTED {
-        return Err(anyhow::format_err!("{err}"));
-    }
-
-    Ok(())
-}
-
-fn parse_or_default<T: std::str::FromStr>(val: &str, default: T) -> Result<T> {
-    if val == "default" {
-        Ok(default)
-    } else {
-        val.parse::<T>()
-            .map_err(|_| anyhow::format_err!("Invalid number format: {val}"))
-    }
 }
 
 pub fn susfs_cli(sub_commmand: SuSFSSubCommands) -> Result<()> {
