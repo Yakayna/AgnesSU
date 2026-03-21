@@ -232,11 +232,11 @@ where
     let mut info = SusfsSusKstat::default();
     str_to_c_array(path.to_string().as_str(), &mut info.target_pathname);
     info.is_statically = false;
-    info.target_ino = md.ino() as u64;
+    info.target_ino = md.ino();
     match types {
         SusKstatType::Update => {
             info.spoofed_size = md.size() as i64;
-            info.spoofed_blocks = md.blocks() as u64;
+            info.spoofed_blocks = md.blocks();
         }
         SusKstatType::Add => {
             copy_metadata_to_sus_kstat(&mut info, &md);
@@ -261,8 +261,8 @@ where
         SusPathType::Loop => CMD_SUSFS_ADD_SUS_PATH_LOOP,
     };
     str_to_c_array(path.to_string().as_str(), &mut info.target_pathname);
-    info.target_ino = md.ino() as u64;
-    info.i_uid = md.uid() as u32;
+    info.target_ino = md.ino();
+    info.i_uid = md.uid();
     info.err = ERR_CMD_NOT_SUPPORTED;
 
     susfs_ctl(&mut info, magic);
