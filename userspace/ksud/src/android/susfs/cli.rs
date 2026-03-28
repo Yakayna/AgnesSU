@@ -35,6 +35,11 @@ pub enum SuSFSSubCommands {
     AddOpenRedirect {
         target_path: String,
         redirected_path: String,
+        ///0: Effective for non-app processes (uid < 10000
+        ///1: Effective for non-su processes of which uid is 0 (All root process but not with su domain)
+        ///2: Effective for non-su processes (Use it carefully!)
+        ///3: Effective for processes that are marked umounted with uid >= 10000 (Use it carefully!)
+        ///4: Effective for processes that are marked umounted (include most of the init spawned process, use it carefully!)
         uid_scheme: u64,
     },
     /// Hidden from /proc/self/maps etc.
