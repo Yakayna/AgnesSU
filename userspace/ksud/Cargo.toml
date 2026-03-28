@@ -58,6 +58,9 @@ prop-rs-android = { git = "https://github.com/Kernel-SU/ksu_props" }
 [target.'cfg(not(target_os = "android"))'.dependencies]
 env_logger = { version = "0.11.9", default-features = false }
 
+[target.'cfg(all(target_os = "android", target_arch = "aarch64"))'.dependencies]
+bitflags = "2.11.0"
+
 [profile.release]
 strip = true
 opt-level = "z"

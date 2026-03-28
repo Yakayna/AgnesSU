@@ -33,12 +33,3 @@ pub(super) fn handle_result(err: i32, cmd: u64) -> Result<()> {
 
     Ok(())
 }
-
-pub(super) fn parse_or_default<T: std::str::FromStr>(val: &str, default: T) -> Result<T> {
-    if val == "default" {
-        Ok(default)
-    } else {
-        val.parse::<T>()
-            .map_err(|_| anyhow::format_err!("Invalid number format: {val}"))
-    }
-}
