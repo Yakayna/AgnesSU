@@ -315,7 +315,7 @@ endif
 
 ## For susfs stuff ##
 ifeq ($(CONFIG_KSU_SUSFS), y)
-include $(KSU_SRC)/inline_hook_check.mk
+include $(KSU_SRC)/tools/inline_hook_check.mk
 ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
 $(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
 $(info )
@@ -329,7 +329,7 @@ endif
 
 # manual hook check
 ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)
-include $(KSU_SRC)/manual_hook_check.mk
+include $(KSU_SRC)/tools/manual_hook_check.mk
 endif
 
 # Keep a new line here!! Because someone may append config
