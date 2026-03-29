@@ -35,7 +35,7 @@ where
         info.fake_cmdline_or_bootconfig[i] = b;
     }
 
-    susfs_ctl(&mut info, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG);
+    susfs_ctl(&mut *info, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG);
     handle_result(info.err, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG)?;
     Ok(())
 }
