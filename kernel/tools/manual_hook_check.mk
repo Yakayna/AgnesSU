@@ -8,6 +8,16 @@ define check_ksu_hook
     endif
 endef
 
+define check_ksu_hook_incompatible
+    ifeq ($$(shell grep -q "$(1)" $(2); echo $$$$?),0)
+        $$(info -- $(1) is incompatible hook)
+        $$(info -- Read: https://resukisu.github.io/guide/manual-integrate.html)
+        $$(error You should integrate $$(REPO_NAME) in your kernel correctly.)
+    endif
+endef
+
+  $(eval $(call check_ksu_hook_incompatible,ksu_vfs_read_hook,$(srctree)/fs/read_write.c))
+  $(eval $(call check_ksu_hook_incompatible,is_ksu_transition,$(srctree)/security/selinux/hooks.c))
 
   ifeq ($(CONFIG_KSU_MANUAL_HOOK_AUTO_SETUID_HOOK), y)
     $(info -- $(REPO_NAME)/manual_hook: You are using LSM hooks for setuid hooks.)
@@ -40,18 +50,6 @@ endef
 
     $(eval $(call check_ksu_hook,ksu_handle_sys_read,$(srctree)/fs/read_write.c))
 
-  endif
-
-  ifeq ($(shell grep -q "ksu_vfs_read_hook" $(srctree)/fs/read_write.c; echo $$?),0)
-    $(info -- ksu_vfs_read_hook is incompatible hook)
-    $(info -- Read: https://resukisu.github.io/guide/manual-integrate.html)
-    $(error You should integrate $(REPO_NAME) in your kernel correctly.)
-  endif
-
-  ifeq ($(shell grep -q "is_ksu_transition" $(srctree)/security/selinux/hooks.c; echo $$?),0)
-    $(info -- is_ksu_transition is incompatible hook)
-    $(info -- Read: https://resukisu.github.io/guide/manual-integrate.html)
-    $(error You should integrate $(REPO_NAME) in your kernel correctly.)
   endif
 
   ifeq ($(CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK), y)
