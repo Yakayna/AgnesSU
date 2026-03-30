@@ -545,10 +545,14 @@ private fun createColorScheme(
     darkTheme: Boolean,
     dynamicColor: Boolean
 ): ColorScheme {
+    val isMiuix = ThemeConfig.uiStyle == UIStyle.MIUIX
     return when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val seedColor =
+        isMiuix || (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) -> {
+            val seedColor = if (isMiuix) {
+                0xFF3482FF.toInt() // MIUI Blue
+            } else {
                 if (ThemeConfig.backgroundImageLoaded) backgroundSeedColor else colorResource(id = R.color.system_accent1_500).toArgb()
+            }
             val hct = Hct.fromInt(seedColor)
             val scheme = SchemeTonalSpot(hct, darkTheme, 0.0)
             MaterialTheme.colorScheme.copy(
