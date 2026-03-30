@@ -36,7 +36,7 @@
     <string name="reboot_download">Khởi động lại vào Download</string>
     <string name="reboot_edl">Khởi động lại vào EDL</string>
     <string name="about">Thông tin</string>
-    <string name="about_anime_character_sticker">Agnes Tàychyon đè tem by @Sinectrtea</string>
+    <string name="about_anime_character_sticker">Agnes Tàychyon đè tem by @Sinectrea</string>
     <string name="get_source_code">Kiểm tra mã nguồn</string>
     <string name="get_source_code_detail">Kiểm tra mã nguồn trên GitHub</string>
     <string name="join_telegram_group">Tham gia cộng đồng</string>
@@ -64,7 +64,7 @@
     <string name="home_click_to_learn_kernelsu">Tìm hiểu cách cài đặt KernelSU và sử dụng các module!</string>
     <string name="home_support_title">Ủng hộ chúng tôi</string>
     <string name="home_support_content">KernelSU sẽ luôn là miễn phí và mã nguồn mở. Tuy nhiên, bạn có thể cho chúng tôi thấy rằng bạn quan tâm bằng cách quyên góp!</string>
-    <string name="about_source_code"><![CDATA[Tham gia kênh %1$s của chúng tôi<br/><br/>Agnes Tàychyon đè tem by @Sinectrtea]]></string>
+    <string name="about_source_code"><![CDATA[Tham gia kênh %1$s của chúng tôi<br/><br/>Agnes Tàychyon đè tem by @Sinectrea]]></string>
     <string name="profile_default">Mặc định</string>
     <string name="profile_template">Bản mẫu</string>
     <string name="profile_custom">Tuỳ chỉnh</string>

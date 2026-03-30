@@ -213,7 +213,7 @@ private fun monitorDownload(
 }
 
 fun checkNewVersion(): LatestVersionInfo {
-    val url = "https://api.github.com/repos/AgneSU/AgnesSU/releases/latest"
+    val url = "https://api.github.com/repos/Yakayna/AgnesSU/releases/latest"
     val defaultValue = LatestVersionInfo()
     return runCatching {
         val request = okhttp3.Request.Builder()
@@ -247,7 +247,7 @@ fun checkNewVersion(): LatestVersionInfo {
                 val name = asset.getString("name")
                 if (!name.endsWith(".apk")) continue
 
-                val regex = Regex("SukiSU.*_(\\d+)-release")
+                val regex = Regex("AgnesSU.*_(\\d+)-release")
                 val matchResult = regex.find(name)
                 if (matchResult == null) {
                     Log.d("CheckUpdate", "No matches found: $name, skip over")
