@@ -39,4 +39,4 @@
 -dontwarn javax.tools.Diagnostic$Kind
 -dontwarn androidx.navigationevent.compose.RememberNavigationEventStateKt**
 
--keep interface com.resukisu.zako.** { *; }
+-keep interface com.agnessu.zako.** { *; }

@@ -182,7 +182,7 @@ enum Debug {
     /// Set the manager app, kernel CONFIG_KSU_DEBUG should be enabled.
     SetManager {
         /// manager package name
-        #[arg(default_value_t = String::from("com.resukisu.resukisu"))]
+        #[arg(default_value_t = String::from("com.agnessu.yakayn"))]
         apk: String,
     },
 

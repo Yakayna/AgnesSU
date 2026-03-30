@@ -128,7 +128,7 @@ pub fn run() -> Result<()> {
 
     // 15. Restart Manager so it gets a fresh ksu fd from the newly loaded kernel module
     info!("Restarting KernelSU Manager...");
-    let pkg = "com.resukisu.resukisu";
+    let pkg = "com.agnessu.yakayn";
     let _ = Command::new("am").args(["force-stop", pkg]).status();
     let _ = Command::new("am")
         .args(["start", "-n", &format!("{pkg}/.ui.MainActivity")])
