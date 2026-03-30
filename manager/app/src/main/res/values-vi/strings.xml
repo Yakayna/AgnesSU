@@ -198,6 +198,10 @@
     <string name="theme_follow_system">Theo hệ thống</string>
     <string name="theme_light">Sáng</string>
     <string name="theme_dark">Tối</string>
+    <string name="ui_style_title">Giao diện</string>
+    <string name="ui_style_summary">Chọn kiểu giao diện ứng dụng</string>
+    <string name="ui_style_default">Mặc định</string>
+    <string name="ui_style_miuix">Miuix</string>
     <string name="manual_hook">Hook thủ công</string>
     <string name="dynamic_color_title">Màu sắc động</string>
     <string name="dynamic_color_summary">Sử dụng màu sắc động làm chủ đề hệ thống</string>

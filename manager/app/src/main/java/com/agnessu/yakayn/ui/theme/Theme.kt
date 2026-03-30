@@ -1,5 +1,9 @@
 package com.agnessu.yakayn.ui.theme
 
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColorScheme
+import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColorScheme
+
 import android.R
 import android.content.Context
 import android.graphics.Bitmap
@@ -66,6 +70,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
+/**
+ * UI Style enum: Mặc định (Material Design 3) hoặc Miuix (HyperOS style)
+ */
+enum class UIStyle {
+    DEFAULT, MIUIX;
+
+    companion object {
+        fun fromName(name: String): UIStyle = when (name.lowercase()) {
+            "miuix" -> MIUIX
+            else -> DEFAULT
+        }
+    }
+}
+
 @Stable
 object ThemeConfig {
     // 主题状态
@@ -74,6 +92,9 @@ object ThemeConfig {
     var forceDarkMode by mutableStateOf<Boolean?>(null)
     var currentTheme by mutableStateOf<ThemeColors>(ThemeColors.Default)
     var useDynamicColor by mutableStateOf(false)
+
+    // UI Style: Mặc định / Miuix
+    var uiStyle by mutableStateOf(UIStyle.DEFAULT)
 
     // 背景状态
     var backgroundImageLoaded by mutableStateOf(false)
@@ -111,6 +132,7 @@ object ThemeConfig {
         forceDarkMode = null
         currentTheme = ThemeColors.Default
         useDynamicColor = false
+        uiStyle = UIStyle.DEFAULT
         backgroundImageLoaded = false
         isThemeChanging = false
         preventBackgroundRefresh = false
@@ -170,6 +192,19 @@ object ThemeManager {
         val enabled = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean("use_dynamic_color", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
         ThemeConfig.useDynamicColor = enabled
+    }
+
+    fun saveUIStyle(context: Context, style: UIStyle) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit {
+            putString("ui_style", style.name.lowercase())
+        }
+        ThemeConfig.uiStyle = style
+    }
+
+    fun loadUIStyle(context: Context) {
+        val styleName = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("ui_style", "default") ?: "default"
+        ThemeConfig.uiStyle = UIStyle.fromName(styleName)
     }
 }
 
@@ -289,15 +324,38 @@ fun KernelSUTheme(
     // 系统栏样式
     SystemBarController(darkTheme)
 
-    MaterialExpressiveTheme(
-        colorScheme = colorScheme,
-        motionScheme = MotionScheme.expressive(),
-        typography = Typography
-    ) {
-        MonetColorsProvider.UpdateCss()
-        Box(modifier = Modifier.fillMaxSize()) {
-            BackgroundLayer()
-            content()
+    when (ThemeConfig.uiStyle) {
+        UIStyle.MIUIX -> {
+            // Miuix theme: wrap MiuixTheme inside MaterialExpressiveTheme for backward compat  
+            val miuixColors = if (darkTheme) miuixDarkColorScheme() else miuixLightColorScheme()
+            MaterialExpressiveTheme(
+                colorScheme = colorScheme,
+                motionScheme = MotionScheme.expressive(),
+                typography = Typography
+            ) {
+                MiuixTheme(
+                    colors = miuixColors
+                ) {
+                    MonetColorsProvider.UpdateCss()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        BackgroundLayer()
+                        content()
+                    }
+                }
+            }
+        }
+        UIStyle.DEFAULT -> {
+            MaterialExpressiveTheme(
+                colorScheme = colorScheme,
+                motionScheme = MotionScheme.expressive(),
+                typography = Typography
+            ) {
+                MonetColorsProvider.UpdateCss()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    BackgroundLayer()
+                    content()
+                }
+            }
         }
     }
 }
@@ -331,6 +389,7 @@ private fun ThemeInitializer(context: Context, systemIsDark: Boolean) {
             ThemeManager.loadThemeMode(context)
             ThemeManager.loadThemeColors(context)
             ThemeManager.loadDynamicColorState(context)
+            ThemeManager.loadUIStyle(context)
             CardConfig.load(context)
 
             if (!ThemeConfig.backgroundImageLoaded && !ThemeConfig.preventBackgroundRefresh) {
@@ -676,6 +735,10 @@ fun Context.saveThemeColors(themeName: String) {
 
 fun Context.saveDynamicColorState(enabled: Boolean) {
     ThemeManager.saveDynamicColorState(this, enabled)
+}
+
+fun Context.saveUIStyle(style: UIStyle) {
+    ThemeManager.saveUIStyle(this, style)
 }
 
 @Composable

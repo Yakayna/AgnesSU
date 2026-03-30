@@ -301,6 +301,20 @@ private fun AppearanceSettings(
         }
 
         item {
+            // Giao diện (UI Style)
+            SettingsDropdownWidget(
+                icon = Icons.Default.Palette,
+                title = stringResource(R.string.ui_style_title),
+                description = stringResource(R.string.ui_style_summary),
+                items = state.uiStyleOptions,
+                selectedIndex = state.uiStyle,
+                onSelectedIndexChange = { index ->
+                    handlers.handleUIStyleChange(index)
+                }
+            )
+        }
+
+        item {
             // 主题模式
             SettingsDropdownWidget(
                 icon = Icons.Default.DarkMode,

@@ -215,6 +215,8 @@ dependencies {
     implementation(libs.haze.materials)
     implementation(libs.capsule)
 
+    implementation(libs.miuix)
+
     implementation(libs.dev.rikka.rikkax.parcelablelist)
 
     implementation(libs.io.coil.kt.coil.compose)

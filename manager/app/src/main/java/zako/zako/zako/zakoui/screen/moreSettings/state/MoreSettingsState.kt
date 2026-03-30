@@ -12,6 +12,7 @@ import com.agnessu.yakayn.Natives
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
+import com.agnessu.yakayn.ui.theme.UIStyle
 import zako.zako.zako.zakoui.screen.moreSettings.util.LocaleHelper
 
 /**
@@ -34,6 +35,14 @@ class MoreSettingsState(
 
     // 动态颜色开关状态
     var useDynamicColor by mutableStateOf(ThemeConfig.useDynamicColor)
+
+    // UI Style (Giao diện)
+    var uiStyle by mutableIntStateOf(
+        when (ThemeConfig.uiStyle) {
+            UIStyle.DEFAULT -> 0
+            UIStyle.MIUIX -> 1
+        }
+    )
 
     // 语言设置
     var showLanguageDialog by mutableStateOf(false)
@@ -83,6 +92,12 @@ class MoreSettingsState(
         context.getString(R.string.theme_follow_system),
         context.getString(R.string.theme_light),
         context.getString(R.string.theme_dark)
+    )
+
+    // UI Style options
+    val uiStyleOptions = listOf(
+        context.getString(R.string.ui_style_default),
+        context.getString(R.string.ui_style_miuix)
     )
 
     // 预设 DPI 选项

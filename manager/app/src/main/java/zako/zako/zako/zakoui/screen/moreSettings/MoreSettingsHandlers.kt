@@ -21,6 +21,8 @@ import com.agnessu.yakayn.ui.theme.saveCustomBackground
 import com.agnessu.yakayn.ui.theme.saveDynamicColorState
 import com.agnessu.yakayn.ui.theme.saveThemeColors
 import com.agnessu.yakayn.ui.theme.saveThemeMode
+import com.agnessu.yakayn.ui.theme.saveUIStyle
+import com.agnessu.yakayn.ui.theme.UIStyle
 import com.topjohnwu.superuser.Shell
 import zako.zako.zako.zakoui.screen.moreSettings.state.MoreSettingsState
 import zako.zako.zako.zakoui.screen.moreSettings.util.toggleLauncherIcon
@@ -89,6 +91,24 @@ class MoreSettingsHandlers(
                 state.dynamicSignHash = config.hash
             }
         }
+
+        // Initialize UI style
+        state.uiStyle = when (ThemeConfig.uiStyle) {
+            UIStyle.DEFAULT -> 0
+            UIStyle.MIUIX -> 1
+        }
+    }
+
+    /**
+     * Xử lý thay đổi giao diện (UI Style)
+     */
+    fun handleUIStyleChange(index: Int) {
+        state.uiStyle = index
+        val newStyle = when (index) {
+            1 -> UIStyle.MIUIX
+            else -> UIStyle.DEFAULT
+        }
+        activity.saveUIStyle(newStyle)
     }
 
     /**

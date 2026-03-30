@@ -226,6 +226,10 @@
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
+    <string name="ui_style_title">Interface</string>
+    <string name="ui_style_summary">Choose app interface style</string>
+    <string name="ui_style_default">Default</string>
+    <string name="ui_style_miuix">Miuix</string>
     <string name="manual_hook">Manual Hook</string>
     <string name="inline_hook">Inline Hook</string>
     <string name="dynamic_color_title">Dynamic colours</string>
