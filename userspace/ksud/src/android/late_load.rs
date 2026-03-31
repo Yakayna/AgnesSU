@@ -36,7 +36,7 @@ fn dump_process_info(label: &str) {
 }
 
 pub fn run() -> Result<()> {
-    utils::daemonize(|| Ok(()))?;
+    utils::daemonize(false)?;
     info!("late-load command triggered!");
     dump_process_info("late-load start");
 
