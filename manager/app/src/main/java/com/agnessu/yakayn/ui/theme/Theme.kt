@@ -374,6 +374,7 @@ fun KernelSUTheme(
                         BackgroundLayer()
                         content()
                     }
+                }
             }
         }
     }
