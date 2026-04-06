@@ -10,13 +10,13 @@ static inline void ksu_throne_tracker_exit(void)
 {
 }
 
-static inline void track_throne(bool prune_only, bool force_search_manager)
+static inline void track_throne(bool prune_only, bool force_search_manager, bool from_renameat)
 {
 }
 #else
 void ksu_throne_tracker_init(void);
 void ksu_throne_tracker_exit(void);
-void track_throne(bool prune_only, bool force_search_manager);
+void track_throne(bool prune_only, bool force_search_manager, bool from_renameat);
 #endif
 
 #endif

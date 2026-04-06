@@ -77,16 +77,6 @@ __attribute__((naked)) int __init kernelsu_init_early(void)
 struct cred *ksu_cred;
 bool ksu_late_loaded;
 
-void sukisu_exit(void)
-{
-#ifndef CONFIG_KSU_DISABLE_MANAGER
-    ksu_dynamic_manager_exit();
-#endif
-#if __SULOG_GATE
-    ksu_sulog_exit();
-#endif
-}
-
 // dispatcher of ksu hooks
 #ifdef KSU_TP_HOOK
 #include "hook/syscall_hook_manager.h"
@@ -99,10 +89,14 @@ static inline void ksu_hook_init(void)
     ksu_syscall_hook_init();
     ksu_syscall_hook_manager_init();
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+// only lsm hook need call init
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
     ksu_lsm_hook_init();
 #endif
 #elif defined(CONFIG_KSU_SUSFS)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+    ksu_lsm_hook_init();
+#endif
     susfs_init();
 #else
 #error "Unsupported hook type"
@@ -167,6 +161,9 @@ int __init kernelsu_init(void)
     ksu_setuid_hook_init();
     ksu_sucompat_init();
     if (ksu_late_loaded) {
+        // This way are only happen when tracepoint+lkm
+        // so we use ifdef MODULE there to avoid manual hook compile failed
+#ifdef MODULE
         pr_info("late load mode, skipping kprobe hooks\n");
 
         apply_kernelsu_rules();
@@ -187,20 +184,19 @@ int __init kernelsu_init(void)
         ksu_observer_init();
         ksu_file_wrapper_init();
 
-#if __SULOG_GATE
         ksu_sulog_init();
-#endif
 #ifndef CONFIG_KSU_DISABLE_MANAGER
         ksu_dynamic_manager_init();
 #endif
 
         ksu_boot_completed = true;
-        track_throne(false, true);
+        track_throne(false, true, false);
 
         if (!getenforce()) {
             pr_info("Permissive SELinux, enforcing\n");
             setenforce(true);
         }
+#endif
     } else {
         ksu_hook_init();
 
@@ -221,7 +217,6 @@ int __init kernelsu_init(void)
     return 0;
 }
 
-extern void ksu_observer_exit(void);
 void kernelsu_exit(void)
 {
     // Phase 1: Stop all hooks first to prevent new callbacks
@@ -229,7 +224,10 @@ void kernelsu_exit(void)
     ksu_supercalls_exit();
     if (!ksu_late_loaded)
         ksu_ksud_exit();
-    sukisu_exit();
+#ifndef CONFIG_KSU_DISABLE_MANAGER
+    ksu_dynamic_manager_exit();
+#endif
+    ksu_sulog_exit();
 
     // Wait for any in-flight RCU readers (e.g. handler traversing allow_list)
     synchronize_rcu();

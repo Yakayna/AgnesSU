@@ -4,8 +4,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/version.h>
-#include <linux/workqueue.h>
-#include <linux/task_work.h>
 #include <linux/sched.h>
 #include <linux/pid.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
@@ -85,7 +83,7 @@ int ksu_handle_dynamic_manager(struct ksu_dynamic_manager_cmd *cmd)
 
         dynamic_manager.is_set = 1;
 
-        track_throne(false, true);
+        track_throne(false, true, false);
         pr_info("dynamic manager updated: size=0x%x, hash=%.16s... (multi-manager enabled)\n", cmd->size, cmd->hash);
         break;
 

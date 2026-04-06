@@ -25,6 +25,7 @@ import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.SideEffect
@@ -33,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -40,7 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
@@ -308,6 +312,7 @@ object BackgroundManager {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun KernelSUTheme(
+    dpi: Int = 0,
     darkTheme: Boolean = isInDarkTheme(ThemeConfig.forceDarkMode),
     dynamicColor: Boolean = ThemeConfig.useDynamicColor,
     content: @Composable () -> Unit
@@ -324,37 +329,51 @@ fun KernelSUTheme(
     // 系统栏样式
     SystemBarController(darkTheme)
 
-    when (ThemeConfig.uiStyle) {
-        UIStyle.MIUIX -> {
-            // Miuix theme: wrap MiuixTheme inside MaterialExpressiveTheme for backward compat  
-            val miuixColors = if (darkTheme) miuixDarkColorScheme() else miuixLightColorScheme()
-            MaterialExpressiveTheme(
-                colorScheme = colorScheme,
-                motionScheme = MotionScheme.expressive(),
-                typography = Typography
-            ) {
-                MiuixTheme(
-                    colors = miuixColors
+    val systemDensity = LocalDensity.current
+
+    val density = remember(systemDensity, dpi) {
+        if (dpi <= 0f) {
+            systemDensity
+        } else {
+            val targetDensity = dpi / 160f
+            Density(density = targetDensity, fontScale = systemDensity.fontScale)
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalDensity provides density
+    ) {
+        when (ThemeConfig.uiStyle) {
+            UIStyle.MIUIX -> {
+                // Miuix theme: wrap MiuixTheme inside MaterialExpressiveTheme for backward compat  
+                val miuixColors = if (darkTheme) miuixDarkColorScheme() else miuixLightColorScheme()
+                MaterialExpressiveTheme(
+                    colorScheme = colorScheme,
+                    motionScheme = MotionScheme.expressive(),
+                    typography = Typography
+                ) {
+                    MiuixTheme(
+                        colors = miuixColors
+                    ) {
+                        MonetColorsProvider.UpdateCss()
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            BackgroundLayer()
+                            content()
+                        }
+                    }
+                }
+            }
+            UIStyle.DEFAULT -> {
+                MaterialExpressiveTheme(
+                    colorScheme = colorScheme,
+                    motionScheme = MotionScheme.expressive(),
+                    typography = Typography
                 ) {
                     MonetColorsProvider.UpdateCss()
                     Box(modifier = Modifier.fillMaxSize()) {
                         BackgroundLayer()
                         content()
                     }
-                }
-            }
-        }
-        UIStyle.DEFAULT -> {
-            MaterialExpressiveTheme(
-                colorScheme = colorScheme,
-                motionScheme = MotionScheme.expressive(),
-                typography = Typography
-            ) {
-                MonetColorsProvider.UpdateCss()
-                Box(modifier = Modifier.fillMaxSize()) {
-                    BackgroundLayer()
-                    content()
-                }
             }
         }
     }

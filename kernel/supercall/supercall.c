@@ -7,7 +7,9 @@
 #include <linux/pid.h>
 #include <linux/slab.h>
 #include <linux/syscalls.h>
+#ifdef KSU_TP_HOOK
 #include <linux/task_work.h>
+#endif
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #ifdef CONFIG_KSU_SUSFS
@@ -75,9 +77,7 @@ int ksu_install_fd(void)
     // Install fd
     fd_install(fd, filp);
 
-#if __SULOG_GATE
-    ksu_sulog_report_permission_check(current_uid().val, current->comm, fd >= 0);
-#endif
+    ksu_sulog_report_permission_check(ksu_get_uid_t(current_uid()), current->comm, fd >= 0);
 
     pr_info("ksu fd installed: %d for pid %d\n", fd, current->pid);
 
@@ -141,7 +141,7 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user 
 
 #ifdef CONFIG_KSU_SUSFS
     // If magic2 is susfs and current process is root
-    if (magic2 == SUSFS_MAGIC && current_uid().val == 0) {
+    if (magic2 == SUSFS_MAGIC && ksu_get_uid_t(current_uid()) == 0) {
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
         if (cmd == CMD_SUSFS_ADD_SUS_PATH) {
             susfs_add_sus_path(arg);

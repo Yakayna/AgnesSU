@@ -13,7 +13,7 @@
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0)
 #include <linux/input-event-codes.h>
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 #include <uapi/linux/input.h>
 #endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
@@ -239,7 +239,9 @@ void ksu_handle_execveat_ksud(const char *filename, struct user_arg_ptr *argv, s
 }
 
 static ssize_t (*orig_read)(struct file *, char __user *, size_t, loff_t *);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) || defined(KSU_HAS_FOP_READ_ITER)
 static ssize_t (*orig_read_iter)(struct kiocb *, struct iov_iter *);
+#endif
 static struct file_operations fops_proxy;
 static ssize_t ksu_rc_pos = 0;
 const size_t ksu_rc_len = sizeof(KERNEL_SU_RC) - 1;
@@ -282,6 +284,7 @@ append_ksu_rc:
     return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) || defined(KSU_HAS_FOP_READ_ITER)
 static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
 {
     ssize_t ret = 0;
@@ -297,7 +300,7 @@ static ssize_t read_iter_proxy(struct kiocb *iocb, struct iov_iter *to)
     }
 append_ksu_rc:
     // copy_to_iter returns the number of copied bytes
-    append_count = copy_to_iter(KERNEL_SU_RC + ksu_rc_pos, ksu_rc_len - ksu_rc_pos, to);
+    append_count = copy_to_iter((void *)KERNEL_SU_RC + ksu_rc_pos, ksu_rc_len - ksu_rc_pos, to);
     if (!append_count) {
         pr_info("read_iter_proxy: append error, totally appended %zd\n", ksu_rc_pos);
     } else {
@@ -311,6 +314,7 @@ append_ksu_rc:
     }
     return ret;
 }
+#endif
 
 static bool is_init_rc(struct file *fp)
 {
@@ -319,7 +323,7 @@ static bool is_init_rc(struct file *fp)
         return false;
     }
 
-    if (!d_is_reg(fp->f_path.dentry)) {
+    if (!S_ISREG(fp->f_path.dentry->d_inode->i_mode)) {
         return false;
     }
 
@@ -490,10 +494,12 @@ void ksu_handle_initrc(struct file *file)
     if (orig_read) {
         fops_proxy.read = read_proxy;
     }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 16, 0) || defined(KSU_HAS_FOP_READ_ITER)
     orig_read_iter = file->f_op->read_iter;
     if (orig_read_iter) {
         fops_proxy.read_iter = read_iter_proxy;
     }
+#endif
     // replace the file_operations
     file->f_op = &fops_proxy;
 }
@@ -657,12 +663,21 @@ static void vol_detector_exit()
 }
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0) || defined(KSU_HAS_MODERN_STATIC_KEY_INTERFACE)
 DEFINE_STATIC_KEY_TRUE(ksud_execve_key);
 
 void ksu_stop_ksud_execve_hook(void)
 {
     static_branch_disable(&ksud_execve_key);
 }
+#else
+bool ksud_execve_key __read_mostly = true;
+
+void ksu_stop_ksud_execve_hook(void)
+{
+    ksud_execve_key = false;
+}
+#endif
 
 bool ksu_is_safe_mode()
 {

@@ -42,7 +42,11 @@ static inline void ksu_set_file_immutable(const char *path_name, bool immutable)
         return;
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0) || defined(KSU_HAS_D_INODE)
     inode = d_inode(path.dentry);
+#else
+    inode = path.dentry->d_inode;
+#endif
 
     error = mnt_want_write(path.mnt);
     if (error) {
@@ -84,9 +88,7 @@ int ksu_handle_setuid(uid_t new_uid, uid_t old_uid)
 
     if (old_uid != new_uid) {
         pr_info("handle_setresuid from %d to %d\n", old_uid, new_uid);
-#if __SULOG_GATE
         ksu_sulog_report_syscall(new_uid, NULL, "setuid", NULL);
-#endif
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
@@ -147,7 +149,7 @@ int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid)
     return 0; // dummy hook here
 #else
     // we rely on the fact that zygote always call setresuid(3) with same uids
-    return ksu_handle_setuid(ruid, current_uid().val);
+    return ksu_handle_setuid(ruid, ksu_get_uid_t(current_uid()));
 #endif
 }
 
