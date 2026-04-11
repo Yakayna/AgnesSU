@@ -386,7 +386,7 @@ private fun TopBar(
         ),
         title = {
             Text(
-                text = stringResource(R.string.app_name)
+                text = "AgnesSU <3 "
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(

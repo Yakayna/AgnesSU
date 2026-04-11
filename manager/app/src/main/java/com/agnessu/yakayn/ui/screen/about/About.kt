@@ -164,7 +164,7 @@ fun AboutScreen() {
                             icon = Icons.Rounded.Group,
                             title = stringResource(R.string.join_telegram_group),
                             description = stringResource(R.string.join_telegram_group_detail),
-                            onClick = { uriHandler.openUri("https://t.me/AgnesSU") }
+                            onClick = { uriHandler.openUri("https://t.me/agnescuteee") }
                         )
                     }
                     item {
