@@ -26,7 +26,7 @@ documentfile = "1.1.0"
 ndk = "29.0.14206865"
 foundation = "1.10.6"
 aboutLibraries = "14.0.0-b02"
-miuix = "0.3.4"
+miuix = "0.8.8"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
