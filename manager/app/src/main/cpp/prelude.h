@@ -10,8 +10,8 @@
 #include "logging.h"
 
 #define GetEnvironment() (*env)
-#define NativeBridge(fn, rtn, ...) JNIEXPORT rtn JNICALL  Java_com_agnessu_agnessu_Natives_##fn(JNIEnv* env, jclass clazz, __VA_ARGS__)
-#define NativeBridgeNP(fn, rtn) JNIEXPORT rtn JNICALL Java_com_agnessu_agnessu_Natives_##fn(JNIEnv* env, jclass clazz)
+#define NativeBridge(fn, rtn, ...) JNIEXPORT rtn JNICALL  Java_com_agnessu_yakayn_Natives_##fn(JNIEnv* env, jclass clazz, __VA_ARGS__)
+#define NativeBridgeNP(fn, rtn) JNIEXPORT rtn JNICALL Java_com_agnessu_yakayn_Natives_##fn(JNIEnv* env, jclass clazz)
 
 // Macros to simplify field setup
 #define SET_BOOLEAN_FIELD(obj, cls, fieldName, value) do { \
