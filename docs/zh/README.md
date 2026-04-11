@@ -1,13 +1,13 @@
-# ReSukiSU
-<img align='right' src='ReSukiSU_blue.svg' width='220px' alt="ReSukiSU Icon">
+# AgnesSU
+<img align='right' src='AgnesSU_blue.svg' width='220px' alt="AgnesSU Icon">
 
 
 [English](../README.md) | **简体中文** | [日本語](../ja/README.md) | [Türkçe](../tr/README.md) | [Русский](../ru/README.md)
 
 一个 [`SukiSU-Ultra/SukiSU-Ultra`](https://github.com/SukiSU-Ultra/SukiSU-Ultra) 的下游分支,添加了一些有趣的变更，且更加稳定。
 
-[![最新发行](https://img.shields.io/github/v/release/ReSukiSU/ReSukiSU?label=Release&logo=github)](https://github.com/ReSukiSU/ReSukiSU/releases/latest)
-[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/ReSukiSU)
+[![最新发行](https://img.shields.io/github/v/release/AgnesSU/AgnesSU?label=Release&logo=github)](https://github.com/agnessu/yakayn/releases/latest)
+[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/AgnesSU)
 [![协议: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![GitHub 协议](https://img.shields.io/github/license/tiann/KernelSU?logo=gnu)](/LICENSE)
 
@@ -23,7 +23,7 @@
 
 ## 兼容状态
 
-- ReSukiSU 官方支持 GKI 2.0 的设备（内核版本 5.10 以上）。
+- AgnesSU 官方支持 GKI 2.0 的设备（内核版本 5.10 以上）。
 
 - 旧内核也是兼容的（最低 3.4+），不过需要自己编译内核。
 
@@ -31,11 +31,11 @@
 
 ## 集成
 
-请参考[文档](https://ReSukiSU.github.io)
+请参考[文档](https://AgnesSU.github.io)
 
 ## 参与翻译
 
-要将 ReSukiSU 翻译成您的语言，或完善现有的翻译，请使用 [Crowdin](https://crowdin.com/project/ReSukiSU).
+要将 AgnesSU 翻译成您的语言，或完善现有的翻译，请使用 [Crowdin](https://crowdin.com/project/AgnesSU).
 
 ## KPM 支持
 

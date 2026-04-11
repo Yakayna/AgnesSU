@@ -3,7 +3,7 @@ package zako.zako.zako.zakoui.screen.moreSettings.util
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
-import com.resukisu.resukisu.ui.MainActivity
+import com.agnessu.yakayn.ui.MainActivity
 
 /**
  * 刷新启动器图标

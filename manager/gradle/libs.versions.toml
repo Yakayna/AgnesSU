@@ -26,6 +26,7 @@ documentfile = "1.1.0"
 ndk = "29.0.14206865"
 foundation = "1.10.6"
 aboutLibraries = "14.0.0-b02"
+miuix = "0.3.4"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
@@ -93,3 +94,6 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 aboutlibraries-core = { module = "com.mikepenz:aboutlibraries-core", version.ref = "aboutLibraries" }
 # Compose UI modules (choose one or both)
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" } # Material 3 UI
+
+miuix = { module = "top.yukonga.miuix.kmp:miuix-android", version.ref = "miuix" }
+miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }

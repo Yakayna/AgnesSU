@@ -37,7 +37,7 @@ val isReleaseTask =
     project.gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 
 android {
-    namespace = "com.resukisu.resukisu"
+    namespace = "com.agnessu.yakayn"
 
     buildTypes {
         debug {
@@ -158,7 +158,7 @@ android {
 
 base {
     archivesName.set(
-        "ReSukiSU_${managerVersionName}_${managerVersionCode}"
+        "AgnesSU_${managerVersionName}_${managerVersionCode}"
     )
 }
 
@@ -235,5 +235,8 @@ dependencies {
     implementation(libs.com.github.topjohnwu.libsu.core)
 
     implementation(libs.accompanist.drawablepainter)
+
+    implementation(libs.miuix)
+    implementation(libs.miuix.icons)
 
 }
