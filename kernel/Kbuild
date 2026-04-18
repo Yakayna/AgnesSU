@@ -112,7 +112,7 @@ endif
 endif
 
 ifeq ($(CONFIG_KSU_MULTI_MANAGER_SUPPORT), y)
-$(info -- Supported Unofficial Manager: MKSU, RKSU, KOWSU, SukiSU-Ultra, AgnesSU )
+$(info -- Supported Unofficial Manager: AgnesSU, MKSU, RKSU, KOWSU, SukiSU-Ultra )
 endif
 
 ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)

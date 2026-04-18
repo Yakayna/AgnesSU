@@ -1,6 +1,10 @@
 #ifndef MANAGER_SIGN_H
 #define MANAGER_SIGN_H
 
+// AgnesSU/AgnesSU (Yakayna)
+#define EXPECTED_SIZE_AGNESSU 0x364
+#define EXPECTED_HASH_AGNESSU "2d19acc8d27c1285e2ca04ffb60fbcb0d44b05daf2cfdbf5f7101aa17e2dc849"
+
 // tiann/KernelSU
 #define EXPECTED_SIZE_OFFICIAL 0x033b
 #define EXPECTED_HASH_OFFICIAL "c371061b19d8c7d7d6133c6a9bafe198fa944e50c1b31c9d8daa8d7f1fc2d2d6"
