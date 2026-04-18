@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.ui.component
+package com.agnessu.yakayn.ui.component
 
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarData
@@ -10,7 +10,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 
 @Composable
 fun SwipeableSnackbarHost(
