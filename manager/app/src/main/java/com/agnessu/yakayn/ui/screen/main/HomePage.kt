@@ -261,22 +261,7 @@ fun HomePage(
                         )
                     }
 
-                    if (!viewModel.systemStatus.isOfficialSignature) {
-                        WarningCard(
-                            message = stringResource(
-                                R.string.unofficial_version_notice,
-                                stringResource(R.string.app_name)
-                            ),
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.TwoTone.Error,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        )
-                    }
+
 
                     if (viewModel.systemStatus.kernelPatchImplement == Natives.KernelPatchImplement.KERNEL_PATCH_OFFICIAL) {
                         WarningCard(
