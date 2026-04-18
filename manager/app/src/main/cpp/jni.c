@@ -340,7 +340,7 @@ NativeBridgeNP(getKernelPatchImplement, jobject) {
 	int type = get_kernel_patch_implement();
 
 	jclass cls = GetEnvironment()->FindClass(env,
-											 "com/resukisu/resukisu/Natives$KernelPatchImplement");
+											 "com/agnessu/yakayn/Natives$KernelPatchImplement");
 	if (cls == nullptr) {
 		jclass exCls = GetEnvironment()->FindClass(env, "java/lang/IllegalStateException");
 		GetEnvironment()->ThrowNew(env, exCls, "Could not find KernelPatchImplement class");
@@ -348,7 +348,7 @@ NativeBridgeNP(getKernelPatchImplement, jobject) {
 	}
 
 	jmethodID valuesMethod = GetEnvironment()->GetStaticMethodID(env, cls, "values",
-																 "()[Lcom/resukisu/resukisu/Natives$KernelPatchImplement;");
+																 "()[Lcom/agnessu/yakayn/Natives$KernelPatchImplement;");
 	if (valuesMethod == nullptr) {
 		jclass exCls = GetEnvironment()->FindClass(env, "java/lang/IllegalStateException");
 		GetEnvironment()->ThrowNew(env, exCls,
