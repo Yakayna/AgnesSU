@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen
+package com.resukisu.resukisu.ui.screen
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarColors
@@ -65,28 +64,29 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.dropUnlessResumed
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.profile.AppProfileConfig
-import com.agnessu.yakayn.ui.component.profile.RootProfileConfig
-import com.agnessu.yakayn.ui.component.profile.TemplateConfig
-import com.agnessu.yakayn.ui.component.settings.AppBackButton
-import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
-import com.agnessu.yakayn.ui.component.settings.SettingsSwitchWidget
-import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.forceStopApp
-import com.agnessu.yakayn.ui.util.getSepolicy
-import com.agnessu.yakayn.ui.util.launchApp
-import com.agnessu.yakayn.ui.util.restartApp
-import com.agnessu.yakayn.ui.util.setSepolicy
-import com.agnessu.yakayn.ui.viewmodel.SuperUserViewModel
-import com.agnessu.yakayn.ui.viewmodel.getTemplateInfoById
+import com.resukisu.resukisu.Natives
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.profile.AppProfileConfig
+import com.resukisu.resukisu.ui.component.profile.RootProfileConfig
+import com.resukisu.resukisu.ui.component.profile.TemplateConfig
+import com.resukisu.resukisu.ui.component.settings.AppBackButton
+import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
+import com.resukisu.resukisu.ui.component.settings.SettingsSwitchWidget
+import com.resukisu.resukisu.ui.component.settings.SplicedColumnGroup
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.theme.CardConfig
+import com.resukisu.resukisu.ui.theme.haze
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.forceStopApp
+import com.resukisu.resukisu.ui.util.getSepolicy
+import com.resukisu.resukisu.ui.util.launchApp
+import com.resukisu.resukisu.ui.util.restartApp
+import com.resukisu.resukisu.ui.util.setSepolicy
+import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
+import com.resukisu.resukisu.ui.viewmodel.getTemplateInfoById
 import kotlinx.coroutines.launch
 
 /**
@@ -143,7 +143,7 @@ fun AppProfileScreen(
                 scrollBehavior = scrollBehavior,
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackBarHost) },
+        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) },
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)

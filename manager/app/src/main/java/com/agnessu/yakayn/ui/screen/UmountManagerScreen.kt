@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen
+package com.resukisu.resukisu.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +30,6 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -54,19 +53,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.ConfirmResult
-import com.agnessu.yakayn.ui.component.WarningCard
-import com.agnessu.yakayn.ui.component.rememberConfirmDialog
-import com.agnessu.yakayn.ui.component.settings.AppBackButton
-import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
-import com.agnessu.yakayn.ui.component.settings.splicedLazyColumnGroup
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.viewmodel.UmountManagerScreenViewModel
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ui.component.ConfirmResult
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.WarningCard
+import com.resukisu.resukisu.ui.component.rememberConfirmDialog
+import com.resukisu.resukisu.ui.component.settings.AppBackButton
+import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
+import com.resukisu.resukisu.ui.component.settings.splicedLazyColumnGroup
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.theme.ThemeConfig
+import com.resukisu.resukisu.ui.theme.haze
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.viewmodel.UmountManagerScreenViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -126,7 +126,7 @@ fun UmountManagerScreen() {
                 Icon(Icons.Filled.Add, contentDescription = null)
             }
         },
-        snackbarHost = { SnackbarHost(snackBarHost) },
+        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) },
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) { paddingValues ->
@@ -218,7 +218,6 @@ fun UmountManagerScreen() {
                                     LabelText(
                                         label = entry.flagName,
                                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
                             }

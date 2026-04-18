@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen.moduleRepo
+package com.resukisu.resukisu.ui.screen.moduleRepo
 
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
@@ -53,7 +53,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -91,29 +90,30 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.edit
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.activity.util.isNetworkAvailable
-import com.agnessu.yakayn.ui.component.ConfirmDialogHandle
-import com.agnessu.yakayn.ui.component.ConfirmResult
-import com.agnessu.yakayn.ui.component.DialogHandle
-import com.agnessu.yakayn.ui.component.SearchAppBar
-import com.agnessu.yakayn.ui.component.rememberConfirmDialog
-import com.agnessu.yakayn.ui.component.rememberCustomDialog
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Navigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.screen.FlashIt
-import com.agnessu.yakayn.ui.screen.LabelText
-import com.agnessu.yakayn.ui.theme.getCardColors
-import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.download
-import com.agnessu.yakayn.ui.util.module.ReleaseAssetInfo
-import com.agnessu.yakayn.ui.util.module.ReleaseInfo
-import com.agnessu.yakayn.ui.viewmodel.ModuleRepoViewModel
-import com.agnessu.yakayn.ui.viewmodel.ModuleRepoViewModel.RepoModule
-import com.agnessu.yakayn.ui.viewmodel.formatFileSize
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ui.activity.util.isNetworkAvailable
+import com.resukisu.resukisu.ui.component.ConfirmDialogHandle
+import com.resukisu.resukisu.ui.component.ConfirmResult
+import com.resukisu.resukisu.ui.component.DialogHandle
+import com.resukisu.resukisu.ui.component.SearchAppBar
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.rememberConfirmDialog
+import com.resukisu.resukisu.ui.component.rememberCustomDialog
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Navigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.screen.FlashIt
+import com.resukisu.resukisu.ui.screen.LabelText
+import com.resukisu.resukisu.ui.theme.getCardColors
+import com.resukisu.resukisu.ui.theme.getCardElevation
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.download
+import com.resukisu.resukisu.ui.util.module.ReleaseAssetInfo
+import com.resukisu.resukisu.ui.util.module.ReleaseInfo
+import com.resukisu.resukisu.ui.viewmodel.ModuleRepoViewModel
+import com.resukisu.resukisu.ui.viewmodel.ModuleRepoViewModel.RepoModule
+import com.resukisu.resukisu.ui.viewmodel.formatFileSize
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -184,7 +184,7 @@ fun ModuleRepoScreen() {
         contentWindowInsets = WindowInsets.safeDrawing.only(
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         ),
-        snackbarHost = { SnackbarHost(hostState = snackBarHost) }
+        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) }
     ) { innerPadding ->
         var offline by remember { mutableStateOf(!isNetworkAvailable(context)) }
 
@@ -511,20 +511,17 @@ fun OnlineModuleItem(
                 LabelText(
                     label = module.moduleId,
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
                 if (module.metamodule) {
                     LabelText(
                         label = "META",
                         containerColor = MaterialTheme.colorScheme.tertiary,
-                        contentColor = MaterialTheme.colorScheme.onTertiary
                     )
                 }
                 if (module.installed) {
                     LabelText(
                         label = stringResource(R.string.installed),
                         containerColor = MaterialTheme.colorScheme.secondary,
-                        contentColor = MaterialTheme.colorScheme.onSecondary
                     )
                 }
             }

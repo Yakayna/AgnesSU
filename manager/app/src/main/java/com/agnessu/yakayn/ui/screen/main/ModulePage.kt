@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen.main
+package com.resukisu.resukisu.ui.screen.main
 
 import android.annotation.SuppressLint
 import android.app.Activity.CLIPBOARD_SERVICE
@@ -78,7 +78,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -128,41 +127,42 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kyant.capsule.ContinuousRoundedRectangle
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ksuApp
-import com.agnessu.yakayn.ui.component.ConfirmResult
-import com.agnessu.yakayn.ui.component.InstallConfirmationDialog
-import com.agnessu.yakayn.ui.component.SearchAppBar
-import com.agnessu.yakayn.ui.component.WarningCard
-import com.agnessu.yakayn.ui.component.ZipFileDetector.parseModuleInfo
-import com.agnessu.yakayn.ui.component.ZipFileInfo
-import com.agnessu.yakayn.ui.component.ZipType
-import com.agnessu.yakayn.ui.component.rememberConfirmDialog
-import com.agnessu.yakayn.ui.component.rememberLoadingDialog
-import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
-import com.agnessu.yakayn.ui.component.settings.SettingsJumpPageWidget
-import com.agnessu.yakayn.ui.component.settings.SettingsTextFieldWidget
-import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.screen.FlashIt
-import com.agnessu.yakayn.ui.screen.LabelText
-import com.agnessu.yakayn.ui.theme.getCardColors
-import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.DownloadListener
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.download
-import com.agnessu.yakayn.ui.util.hasMagisk
-import com.agnessu.yakayn.ui.util.module.ModuleUtils
-import com.agnessu.yakayn.ui.util.module.Shortcut
-import com.agnessu.yakayn.ui.util.reboot
-import com.agnessu.yakayn.ui.util.toggleModule
-import com.agnessu.yakayn.ui.util.undoUninstallModule
-import com.agnessu.yakayn.ui.util.uninstallModule
-import com.agnessu.yakayn.ui.viewmodel.ModuleViewModel
-import com.agnessu.yakayn.ui.webui.WebUIActivity
+import com.resukisu.resukisu.Natives
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ksuApp
+import com.resukisu.resukisu.ui.component.ConfirmResult
+import com.resukisu.resukisu.ui.component.InstallConfirmationDialog
+import com.resukisu.resukisu.ui.component.SearchAppBar
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.WarningCard
+import com.resukisu.resukisu.ui.component.ZipFileDetector.parseModuleInfo
+import com.resukisu.resukisu.ui.component.ZipFileInfo
+import com.resukisu.resukisu.ui.component.ZipType
+import com.resukisu.resukisu.ui.component.rememberConfirmDialog
+import com.resukisu.resukisu.ui.component.rememberLoadingDialog
+import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
+import com.resukisu.resukisu.ui.component.settings.SettingsJumpPageWidget
+import com.resukisu.resukisu.ui.component.settings.SettingsTextFieldWidget
+import com.resukisu.resukisu.ui.component.settings.SplicedColumnGroup
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.screen.FlashIt
+import com.resukisu.resukisu.ui.screen.LabelText
+import com.resukisu.resukisu.ui.theme.getCardColors
+import com.resukisu.resukisu.ui.theme.getCardElevation
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.DownloadListener
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.download
+import com.resukisu.resukisu.ui.util.hasMagisk
+import com.resukisu.resukisu.ui.util.module.ModuleUtils
+import com.resukisu.resukisu.ui.util.module.Shortcut
+import com.resukisu.resukisu.ui.util.reboot
+import com.resukisu.resukisu.ui.util.toggleModule
+import com.resukisu.resukisu.ui.util.undoUninstallModule
+import com.resukisu.resukisu.ui.util.uninstallModule
+import com.resukisu.resukisu.ui.viewmodel.ModuleViewModel
+import com.resukisu.resukisu.ui.webui.WebUIActivity
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -361,7 +361,7 @@ fun ModulePage(bottomPadding: Dp) {
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         ),
         snackbarHost = {
-            SnackbarHost(
+            SwipeableSnackbarHost(
                 hostState = snackBarHost
             )
         }
@@ -1448,19 +1448,16 @@ fun ModuleItem(
                     LabelText(
                         label = module.dirId,
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                     if (module.metamodule) {
                         LabelText(
                             label = "META",
                             containerColor = MaterialTheme.colorScheme.tertiary,
-                            contentColor = MaterialTheme.colorScheme.onTertiary
                         )
                     }
                     LabelText(
                         label = sizeStr ?: "0 KB",
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }

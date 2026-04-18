@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen.main
+package com.resukisu.resukisu.ui.screen.main
 
 import android.app.Activity
 import android.content.Context
@@ -46,7 +46,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,22 +70,23 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.AnimatedFab
-import com.agnessu.yakayn.ui.component.ConfirmDialogHandle
-import com.agnessu.yakayn.ui.component.ConfirmResult
-import com.agnessu.yakayn.ui.component.SearchAppBar
-import com.agnessu.yakayn.ui.component.rememberConfirmDialog
-import com.agnessu.yakayn.ui.component.rememberCustomDialog
-import com.agnessu.yakayn.ui.component.rememberFabVisibilityState
-import com.agnessu.yakayn.ui.theme.getCardColors
-import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.getRootShell
-import com.agnessu.yakayn.ui.util.loadKpmModule
-import com.agnessu.yakayn.ui.util.unloadKpmModule
-import com.agnessu.yakayn.ui.viewmodel.KpmViewModel
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ui.component.AnimatedFab
+import com.resukisu.resukisu.ui.component.ConfirmDialogHandle
+import com.resukisu.resukisu.ui.component.ConfirmResult
+import com.resukisu.resukisu.ui.component.SearchAppBar
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.rememberConfirmDialog
+import com.resukisu.resukisu.ui.component.rememberCustomDialog
+import com.resukisu.resukisu.ui.component.rememberFabVisibilityState
+import com.resukisu.resukisu.ui.theme.getCardColors
+import com.resukisu.resukisu.ui.theme.getCardElevation
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.getRootShell
+import com.resukisu.resukisu.ui.util.loadKpmModule
+import com.resukisu.resukisu.ui.util.unloadKpmModule
+import com.resukisu.resukisu.ui.viewmodel.KpmViewModel
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
@@ -364,7 +364,7 @@ fun KpmPage(bottomPadding: Dp) {
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         ),
         snackbarHost = {
-            SnackbarHost(
+            SwipeableSnackbarHost(
                 modifier = if (!fabVisible) {
                     Modifier.padding(bottom = bottomPadding)
                 } else Modifier,

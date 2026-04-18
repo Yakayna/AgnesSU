@@ -216,7 +216,6 @@ class MainActivity : ComponentActivity() {
             setContent {
                 KernelSUTheme {
                     val context = LocalContext.current
-                    val snackBarHostState = remember { SnackbarHostState() }
 
                     LaunchedEffect(zipUri) {
                         if (zipUri.isNullOrEmpty()) return@LaunchedEffect
@@ -253,7 +252,6 @@ class MainActivity : ComponentActivity() {
 
                     CompositionLocalProvider(
                         LocalNavigator provides navigator,
-                        LocalSnackbarHost provides snackBarHostState,
                         LocalDensity provides density
                     ) {
                         HandleDeepLink(
@@ -357,6 +355,7 @@ class MainActivity : ComponentActivity() {
                                         val pageKey = content.contentKey.toString()
                                         val navContent = LocalNavAnimatedContentScope.current
                                         val transition = navContent.transition
+                                        val snackBarHostState = remember { SnackbarHostState() }
 
                                         val tripe =
                                             if (pageKey == navigator.current()
@@ -442,7 +441,8 @@ class MainActivity : ComponentActivity() {
                                             MaterialTheme.colorScheme.surfaceContainer
 
                                         CompositionLocalProvider(
-                                            LocalHazeState provides if (CardConfig.isCustomBackgroundEnabled) rememberHazeState() else null
+                                            LocalHazeState provides if (CardConfig.isCustomBackgroundEnabled) rememberHazeState() else null,
+                                            LocalSnackbarHost provides snackBarHostState,
                                         ) {
                                             Surface(
                                                 modifier = tripe.first,
@@ -734,8 +734,14 @@ fun MainScreen() {
                     userScrollEnabled = userScrollEnabled,
                 ) { pageIndex ->
                     if (pages.isEmpty()) return@HorizontalPager
-                    val destination = pages[pageIndex]
-                    destination.direction(paddingBottom)
+
+                    val snackBarHostState = remember { SnackbarHostState() }
+                    CompositionLocalProvider(
+                        LocalSnackbarHost provides snackBarHostState,
+                    ) {
+                        val destination = pages[pageIndex]
+                        destination.direction(paddingBottom)
+                    }
                 }
             }
 

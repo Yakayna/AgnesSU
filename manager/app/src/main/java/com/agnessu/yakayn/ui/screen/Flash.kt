@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen
+package com.resukisu.resukisu.ui.screen
 
 import android.content.Context
 import android.content.Intent
@@ -48,7 +48,6 @@ import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -77,26 +76,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.KeyEventBlocker
-import com.agnessu.yakayn.ui.component.rememberCustomDialog
-import com.agnessu.yakayn.ui.component.settings.AppBackButton
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LkmSelection
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.flashModule
-import com.agnessu.yakayn.ui.util.hasMetaModule
-import com.agnessu.yakayn.ui.util.installBoot
-import com.agnessu.yakayn.ui.util.module.ModuleUtils
-import com.agnessu.yakayn.ui.util.reboot
-import com.agnessu.yakayn.ui.util.restoreBoot
-import com.agnessu.yakayn.ui.util.uninstallPermanently
-import com.agnessu.yakayn.ui.viewmodel.ModuleViewModel
+import com.resukisu.resukisu.Natives
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ui.component.KeyEventBlocker
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.rememberCustomDialog
+import com.resukisu.resukisu.ui.component.settings.AppBackButton
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.theme.ThemeConfig
+import com.resukisu.resukisu.ui.theme.haze
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LkmSelection
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.flashModule
+import com.resukisu.resukisu.ui.util.hasMetaModule
+import com.resukisu.resukisu.ui.util.installBoot
+import com.resukisu.resukisu.ui.util.module.ModuleUtils
+import com.resukisu.resukisu.ui.util.reboot
+import com.resukisu.resukisu.ui.util.restoreBoot
+import com.resukisu.resukisu.ui.util.uninstallPermanently
+import com.resukisu.resukisu.ui.viewmodel.ModuleViewModel
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -534,7 +534,7 @@ fun FlashScreen(flashIt: FlashIt) {
                 )
             }
         },
-        snackbarHost = { SnackbarHost(hostState = snackBarHost) },
+        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) },
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) { innerPadding ->

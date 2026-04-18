@@ -1,6 +1,5 @@
-package com.agnessu.yakayn.ui.screen.main
+package com.resukisu.resukisu.ui.screen.main
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -66,7 +65,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -95,30 +93,32 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.agnessu.yakayn.BuildConfig
-import com.agnessu.yakayn.KernelSUApplication
-import com.agnessu.yakayn.KernelVersion
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.magica.MagicaService
-import com.agnessu.yakayn.ui.component.KsuIsValid
-import com.agnessu.yakayn.ui.component.WarningCard
-import com.agnessu.yakayn.ui.component.rememberConfirmDialog
-import com.agnessu.yakayn.ui.component.rememberLoadingDialog
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.screen.LabelText
-import com.agnessu.yakayn.ui.theme.CardConfig.cardElevation
-import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.getCardColors
-import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.checkNewVersion
-import com.agnessu.yakayn.ui.util.module.LatestVersionInfo
-import com.agnessu.yakayn.ui.util.reboot
-import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
+import com.resukisu.resukisu.BuildConfig
+import com.resukisu.resukisu.KernelSUApplication
+import com.resukisu.resukisu.KernelVersion
+import com.resukisu.resukisu.Natives
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.magica.MagicaService
+import com.resukisu.resukisu.ui.component.KsuIsValid
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.WarningCard
+import com.resukisu.resukisu.ui.component.ksuIsValid
+import com.resukisu.resukisu.ui.component.rememberConfirmDialog
+import com.resukisu.resukisu.ui.component.rememberLoadingDialog
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.screen.LabelText
+import com.resukisu.resukisu.ui.theme.CardConfig.cardElevation
+import com.resukisu.resukisu.ui.theme.ThemeConfig
+import com.resukisu.resukisu.ui.theme.getCardColors
+import com.resukisu.resukisu.ui.theme.getCardElevation
+import com.resukisu.resukisu.ui.theme.haze
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.checkNewVersion
+import com.resukisu.resukisu.ui.util.module.LatestVersionInfo
+import com.resukisu.resukisu.ui.util.reboot
+import com.resukisu.resukisu.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -167,7 +167,7 @@ fun HomePage(
             WindowInsetsSides.Top + WindowInsetsSides.Horizontal
         ),
         snackbarHost = {
-            SnackbarHost(
+            SwipeableSnackbarHost(
                 modifier = Modifier.padding(bottom = bottomPadding),
                 hostState = LocalSnackbarHost.current
             )
@@ -261,6 +261,38 @@ fun HomePage(
                         )
                     }
 
+                    if (!viewModel.systemStatus.isOfficialSignature) {
+                        WarningCard(
+                            message = stringResource(
+                                R.string.unofficial_version_notice,
+                                stringResource(R.string.app_name)
+                            ),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Error,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                    }
+
+                    if (viewModel.systemStatus.kernelPatchImplement == Natives.KernelPatchImplement.KERNEL_PATCH_OFFICIAL) {
+                        WarningCard(
+                            message = stringResource(
+                                R.string.conflict_with_apatch,
+                            ),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Error,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                    }
 
                     if (viewModel.systemStatus.ksuVersion != null && !viewModel.systemStatus.isRootAvailable) {
                         WarningCard(
@@ -386,7 +418,7 @@ private fun TopBar(
         ),
         title = {
             Text(
-                text = "AgnesSU <3 "
+                text = stringResource(R.string.app_name)
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -512,7 +544,6 @@ private fun StatusCard(
                             // 工作模式标签
                             LabelText(
                                 label = workingModeSurfaceText,
-                                contentColor = MaterialTheme.colorScheme.onPrimary,
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
 
@@ -520,7 +551,6 @@ private fun StatusCard(
                                 Spacer(Modifier.width(6.dp))
                                 LabelText(
                                     label = stringResource(id = R.string.jailbreak_mode),
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
                                     containerColor = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -530,7 +560,6 @@ private fun StatusCard(
                                 Spacer(Modifier.width(6.dp))
                                 LabelText(
                                     label = Os.uname().machine,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary,
                                     containerColor = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -781,7 +810,7 @@ private fun InfoCard(
                 icon = Icons.Default.SettingsSuggest,
             )
 
-            if (!isSimpleMode && !systemInfo.susfsEnabled) {
+            if (!isSimpleMode && ksuIsValid()) {
                 InfoCardItem(
                     stringResource(R.string.home_hook_type),
                     Natives.getHookType(),
@@ -888,34 +917,12 @@ private fun InfoCard(
             }
 
             if (!isSimpleMode && !isHideSusfsStatus && systemInfo.susfsEnabled && systemInfo.susfsVersion.isNotEmpty()) {
-                val infoText = SuSFSInfoText(systemInfo)
-
                 InfoCardItem(
                     stringResource(R.string.home_susfs_version),
-                    infoText,
+                    systemInfo.susfsVersion,
                     icon = Icons.Default.Storage
                 )
             }
-        }
-    }
-}
-
-@SuppressLint("ComposableNaming")
-@Composable
-private fun SuSFSInfoText(systemInfo: HomeViewModel.SystemInfo): String = buildString {
-    append(systemInfo.susfsVersion)
-
-    when {
-        Natives.getHookType() == "Manual" -> {
-            append(" (${stringResource(R.string.manual_hook)})")
-        }
-
-        Natives.getHookType() == "Inline" -> {
-            append(" (${stringResource(R.string.inline_hook)})")
-        }
-
-        else -> {
-            append(" (${Natives.getHookType()})")
         }
     }
 }

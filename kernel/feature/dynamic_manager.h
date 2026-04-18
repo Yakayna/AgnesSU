@@ -6,8 +6,6 @@
 #include "manager/manager_sign.h"
 #include "uapi/supercall.h"
 
-#define DYNAMIC_MANAGER_SIGNATURE_INDEX_MAGIC 255
-
 struct dynamic_manager_config {
     unsigned size;
     char hash[65];

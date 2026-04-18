@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.screen.main
+package com.resukisu.resukisu.ui.screen.main
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -66,7 +66,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -101,23 +100,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import coil.request.CachePolicy
 import coil.request.ImageRequest
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ksuApp
-import com.agnessu.yakayn.ui.component.FabMenuPresets
-import com.agnessu.yakayn.ui.component.SearchAppBar
-import com.agnessu.yakayn.ui.component.VerticalExpandableFab
-import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
-import com.agnessu.yakayn.ui.component.settings.splicedLazyColumnGroup
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.screen.LabelText
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.module.ModuleModify
-import com.agnessu.yakayn.ui.viewmodel.AppCategory
-import com.agnessu.yakayn.ui.viewmodel.SortType
-import com.agnessu.yakayn.ui.viewmodel.SuperUserViewModel
+import com.resukisu.resukisu.Natives
+import com.resukisu.resukisu.R
+import com.resukisu.resukisu.ksuApp
+import com.resukisu.resukisu.ui.component.FabMenuPresets
+import com.resukisu.resukisu.ui.component.SearchAppBar
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
+import com.resukisu.resukisu.ui.component.VerticalExpandableFab
+import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
+import com.resukisu.resukisu.ui.component.settings.splicedLazyColumnGroup
+import com.resukisu.resukisu.ui.navigation.LocalNavigator
+import com.resukisu.resukisu.ui.navigation.Route
+import com.resukisu.resukisu.ui.screen.LabelText
+import com.resukisu.resukisu.ui.theme.hazeSource
+import com.resukisu.resukisu.ui.util.LocalSnackbarHost
+import com.resukisu.resukisu.ui.util.module.ModuleModify
+import com.resukisu.resukisu.ui.viewmodel.AppCategory
+import com.resukisu.resukisu.ui.viewmodel.SortType
+import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -252,7 +252,7 @@ fun SuperUserPage(bottomPadding: Dp) {
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         snackbarHost = {
-            SnackbarHost(hostState = snackBarHostState)
+            SwipeableSnackbarHost(hostState = snackBarHostState)
         },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         floatingActionButton = {
@@ -788,7 +788,6 @@ private fun AppGroupItem(
                         LabelText(
                             label = "UMOUNT",
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
                 }
@@ -796,12 +795,11 @@ private fun AppGroupItem(
                     LabelText(
                         label = "CUSTOM",
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
                 } else if (!appGroup.allowSu) {
                     LabelText(
                         label = "DEFAULT",
-                        containerColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
                 if (appGroup.apps.size > 1) {
@@ -809,7 +807,6 @@ private fun AppGroupItem(
                         LabelText(
                             label = it,
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
