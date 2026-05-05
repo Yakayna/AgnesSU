@@ -155,6 +155,8 @@
     <string name="settings_check_update">Update notifications</string>
     <string name="settings_check_update_summary">Auto-check for module and manager updates</string>
     <string name="grant_root_failed">Failed to grant root!</string>
+    <string name="home_pr_build_warning">This is a PR debug build. Do NOT use it in production!</string>
+    <string name="home_pr_kernel_warning">The kernel was built with PR signature support. This is not a production kernel!</string>
     <string name="action">Action</string>
     <string name="close">Close</string>
     <string name="direct_install">Direct install (Recommended)</string>
@@ -194,6 +196,12 @@
     <string name="restore_allowlist">Restore Allowlist</string>
     <string name="settings_custom_background">Custom App Background</string>
     <string name="settings_custom_background_summary">Select an image as background</string>
+    <string name="settings_config_enable_blur">Enable Blur</string>
+    <string name="settings_config_enable_blur_summary">Enable blur process for this app</string>
+    <string name="settings_config_use_custom_background_seed_color">Pick color from custom background</string>
+    <string name="settings_config_use_custom_background_seed_color_summary">Extract dynamic color seed color from custom background</string>
+    <string name="settings_custom_enable_high_contrast">High Contrast Mode</string>
+    <string name="settings_custom_enable_high_contrast_summary">Render shadow around with text</string>
     <string name="settings_card_alpha">Card transparency</string>
     <string name="home_android_version">Android version</string>
     <string name="home_device_model">Device model</string>
@@ -343,7 +351,6 @@
     <string name="check_log">Please check the log</string>
     <string name="installing_module">Module being installed %1$d/%2$d</string>
     <string name="module_failed_count">%d Failed to install a new module</string>
-    <string name="module_download_error">Module download failed</string>
     <string name="kernel_flashing">Kernel Flashing</string>
     <string name="warning_of_meta_module_title">Require Meta module</string>
     <string name="warning_of_meta_module_summary">This module want to mount /system, meta module will handle that. Otherwise, it might not work</string>
@@ -685,4 +692,18 @@ Important Note:\n
     <string name="module_shortcut_permission_tip_xiaomi">Please enable \"Create desktop shortcuts\" permission for this app in Xiaomi settings.</string>
     <string name="module_shortcut_permission_tip_oppo">Please enable \"Desktop shortcut\" permission for this app in OPPO settings.</string>
     <string name="module_shortcut_permission_tip_default">If shortcut creation fails, please enable desktop shortcut permission for this app in system settings.</string>
+
+    <string name="download_channel_name">Module Downloads</string>
+    <string name="download_progress_title">Downloading %s</string>
+    <string name="download_complete_title">Download complete</string>
+    <string name="download_complete_content">%s downloaded successfully</string>
+    <string name="download_failed_title">Download failed</string>
+    <string name="download_failed_content">Failed to download %s</string>
+    <string name="download">Download</string>
+    <string name="download_cancel">Cancel</string>
+    <string name="download_install">Install</string>
+    <string name="notification_permission_description">Need Notification permission to show download progress.</string>
+    <string name="notification_permission_denied">Download failed: Notification permission is required</string>
+    <string name="storage_permission_description">Need External Storage permission to write file.</string>
+    <string name="storage_permission_denied">Download failed: External Storage permission is required</string>
 </resources>

@@ -21,7 +21,7 @@
 #include "manager/manager_identity.h"
 #include "selinux/selinux.h"
 #include "infra/file_wrapper.h"
-#ifdef KSU_TP_HOOK
+#ifdef CONFIG_KSU_TRACEPOINT_HOOK
 #include "hook/tp_marker.h"
 #endif
 #include "feature/dynamic_manager.h"
@@ -68,6 +68,9 @@ static int do_get_info(void __user *arg)
 
 #ifdef MODULE
     cmd.flags |= KSU_GET_INFO_FLAG_LKM;
+#endif
+#ifdef EXPECTED_PR_BUILD_SIZE
+    cmd.flags |= KSU_GET_INFO_FLAG_PR_BUILD;
 #endif
     if (is_manager()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
@@ -380,7 +383,7 @@ static int do_set_app_profile(void __user *arg)
     ret = ksu_set_app_profile(&cmd.profile);
     if (!ret) {
         ksu_persistent_allow_list();
-#ifdef KSU_TP_HOOK
+#ifdef CONFIG_KSU_TRACEPOINT_HOOK
         ksu_mark_running_process();
 #endif
     }
@@ -435,9 +438,11 @@ static int do_set_feature(void __user *arg)
 }
 
 // kcompat for older kernel
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+// https://github.com/torvalds/linux/commit/4f0b9194bc119a9850a99e5e824808e2f468c348
+// 6.8
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0) || defined(KSU_HAS_ANON_INODE_CREATE_FD)
 #define getfd_secure anon_inode_create_getfd
-#elif defined(KSU_HAS_GETFD_SECURE)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0) || defined(KSU_HAS_GETFD_SECURE)
 #define getfd_secure anon_inode_getfd_secure
 #else
 // technically not a secure inode, but, this is the only way so.
@@ -471,7 +476,7 @@ static int do_manage_mark(void __user *arg)
 
     switch (cmd.operation) {
     case KSU_MARK_GET: {
-#if defined(KSU_TP_HOOK)
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK)
         // Get task mark status
         ret = ksu_get_task_mark(cmd.pid);
         if (ret < 0) {
@@ -493,7 +498,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_MARK: {
-#ifdef KSU_TP_HOOK
+#ifdef CONFIG_KSU_TRACEPOINT_HOOK
         if (cmd.pid == 0) {
             ksu_mark_all_process();
         } else {
@@ -511,7 +516,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_UNMARK: {
-#ifdef KSU_TP_HOOK
+#ifdef CONFIG_KSU_TRACEPOINT_HOOK
         if (cmd.pid == 0) {
             ksu_unmark_all_process();
         } else {
@@ -529,7 +534,7 @@ static int do_manage_mark(void __user *arg)
         break;
     }
     case KSU_MARK_REFRESH: {
-#ifdef KSU_TP_HOOK
+#ifdef CONFIG_KSU_TRACEPOINT_HOOK
         ksu_mark_running_process();
         pr_info("manage_mark: refreshed running processes\n");
 #else
@@ -844,7 +849,7 @@ static int do_get_full_version(void __user *arg)
 static int do_get_hook_type(void __user *arg)
 {
     struct ksu_hook_type_cmd cmd = { 0 };
-#if defined(KSU_TP_HOOK)
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK)
     const char *type = "Tracepoint Syscall Redirect";
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
     const char *type = "Manual";
@@ -955,6 +960,91 @@ static int do_get_kernel_patch_implement(void __user *arg)
     return 0;
 }
 
+#ifdef CONFIG_KSU_SUSFS
+int ksu_handle_susfs_cmd(unsigned int cmd, void __user **arg)
+{
+    switch (cmd) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+    case CMD_SUSFS_ADD_SUS_PATH: {
+        susfs_add_sus_path(arg);
+        return 0;
+    }
+    case CMD_SUSFS_ADD_SUS_PATH_LOOP: {
+        susfs_add_sus_path_loop(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+    case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS: {
+        susfs_set_hide_sus_mnts_for_non_su_procs(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+    case CMD_SUSFS_ADD_SUS_KSTAT: {
+        susfs_add_sus_kstat(arg);
+        return 0;
+    }
+    case CMD_SUSFS_UPDATE_SUS_KSTAT: {
+        susfs_update_sus_kstat(arg);
+        return 0;
+    }
+    case CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY: {
+        susfs_add_sus_kstat(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+    case CMD_SUSFS_SET_UNAME: {
+        susfs_set_uname(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+    case CMD_SUSFS_ENABLE_LOG: {
+        susfs_enable_log(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+    case CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG: {
+        susfs_set_cmdline_or_bootconfig(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+    case CMD_SUSFS_ADD_OPEN_REDIRECT: {
+        susfs_add_open_redirect(arg);
+        return 0;
+    }
+#endif //#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+    case CMD_SUSFS_ADD_SUS_MAP: {
+        susfs_add_sus_map(arg);
+        return 0;
+    }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
+    case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING: {
+        susfs_set_avc_log_spoofing(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_ENABLED_FEATURES: {
+        susfs_get_enabled_features(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_VARIANT: {
+        susfs_show_variant(arg);
+        return 0;
+    }
+    case CMD_SUSFS_SHOW_VERSION: {
+        susfs_show_version(arg);
+        return 0;
+    }
+    }
+    return 0;
+}
+#endif
+
 #ifdef CONFIG_KSU_TOOLKIT_SUPPORT
 int ksu_try_handle_toolkit_cmd(int magic2, unsigned int cmd, void __user **arg)
 {
@@ -1014,8 +1104,6 @@ int ksu_try_handle_toolkit_cmd(int magic2, unsigned int cmd, void __user **arg)
             pr_err("handle_toolkit_cmd: copy_from_user fail\n");
             return 1;
         }
-
-        pr_info("handle_toolkit_cmd: u_ptr: 0x%lx \n", (uintptr_t)u_ptr);
 
         // for release
         if (strncpy_from_user(release_buf, (char __user *)u_ptr, sizeof(release_buf)) < 0) {

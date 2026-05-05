@@ -279,7 +279,6 @@
     <string name="check_log">Vui lòng kiểm tra nhật ký</string>
     <string name="installing_module">Đang cài đặt module %1$d/%2$d</string>
     <string name="module_failed_count">Cài đặt module %d thất bại</string>
-    <string name="module_download_error">Tải xuống module thất bại</string>
     <string name="warning_of_meta_module_title">Yêu cầu Siêu Module</string>
     <string name="warning_of_meta_module_summary">Module này muốn mount /system, Siêu Module sẽ xử lý việc đó. Nếu không, nó có thể không hoạt động</string>
     <string name="category_all_apps">Tất cả</string>
