@@ -125,6 +125,7 @@ else ifeq ($(CONFIG_KSU_SUSFS), y)
 $(info -- $(REPO_NAME): using SUSFS_INLINE_HOOK)
 else
 ccflags-y += -DKSU_TP_HOOK
+ccflags-y += -DCONFIG_KSU_TRACEPOINT_HOOK
 KSU_TP_HOOK := y
 $(info -- $(REPO_NAME): using KSU_TRACEPOINT_HOOK)
 endif
