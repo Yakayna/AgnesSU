@@ -11,9 +11,9 @@ import android.os.Build
 import android.os.Environment
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.resukisu.resukisu.R
-import com.resukisu.resukisu.ksuApp
-import com.resukisu.resukisu.ui.MainActivity
+import com.agnessu.yakayn.R
+import com.agnessu.yakayn.ksuApp
+import com.agnessu.yakayn.ui.MainActivity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -3,7 +3,7 @@ package com.agnessu.yakayn.ui.util
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.compositionLocalOf
-import com.resukisu.resukisu.ui.activity.PermissionRequestInterface
+import com.agnessu.yakayn.ui.activity.PermissionRequestInterface
 import dev.chrisbanes.haze.HazeState
 
 val LocalSnackbarHost = compositionLocalOf<SnackbarHostState> {

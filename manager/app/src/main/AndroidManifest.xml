@@ -124,7 +124,7 @@
             android:useAppZygote="true" />
 
         <service
-            android:name=".ui.util.downloader.DownloadService"
+            android:name="com.resukisu.resukisu.ui.util.downloader.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 

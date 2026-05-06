@@ -5,11 +5,11 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
-import com.resukisu.resukisu.R
-import com.resukisu.resukisu.ksuApp
-import com.resukisu.resukisu.ui.activity.PermissionRequestInterface
-import com.resukisu.resukisu.ui.activity.util.isNetworkAvailable
-import com.resukisu.resukisu.ui.util.module.LatestVersionInfo
+import com.agnessu.yakayn.R
+import com.agnessu.yakayn.ksuApp
+import com.agnessu.yakayn.ui.activity.PermissionRequestInterface
+import com.agnessu.yakayn.ui.activity.util.isNetworkAvailable
+import com.agnessu.yakayn.ui.util.module.LatestVersionInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
