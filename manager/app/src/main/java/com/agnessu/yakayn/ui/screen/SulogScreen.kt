@@ -82,8 +82,8 @@ import com.agnessu.yakayn.ui.component.settings.SettingsDropdownWidget
 import com.agnessu.yakayn.ui.component.settings.splicedLazyColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.LocalHazeState
+import com.agnessu.yakayn.ui.theme.blurSource
+import com.agnessu.yakayn.ui.util.LocalBlurState
 import com.agnessu.yakayn.ui.util.SulogEntry
 import com.agnessu.yakayn.ui.util.SulogEventFilter
 import com.agnessu.yakayn.ui.util.SulogEventType
@@ -224,7 +224,7 @@ private fun SulogScreenContent(
             state = pullToRefreshState,
             modifier = Modifier
                 .fillMaxSize()
-                .hazeSource(),
+                .blurSource(),
             isRefreshing = state.isRefreshing,
             onRefresh = {
                 actions.onRefresh()
@@ -321,7 +321,7 @@ private fun SulogScreenContent(
 @Composable
 fun SulogScreenTranslationPreview() {
     CompositionLocalProvider(
-        LocalHazeState provides null
+        LocalBlurState provides null
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer
@@ -411,7 +411,7 @@ fun SulogScreenTranslationPreview() {
 @Composable
 fun SulogScreenPreview() {
     CompositionLocalProvider(
-        LocalHazeState provides null
+        LocalBlurState provides null
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer

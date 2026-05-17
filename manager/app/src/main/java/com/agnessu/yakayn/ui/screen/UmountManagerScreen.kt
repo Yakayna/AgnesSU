@@ -62,9 +62,10 @@ import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
 import com.agnessu.yakayn.ui.component.settings.splicedLazyColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
+import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.viewmodel.UmountManagerScreenViewModel
 import kotlinx.coroutines.Dispatchers
@@ -97,7 +98,7 @@ fun UmountManagerScreen() {
         topBar = {
             LargeFlexibleTopAppBar(
                 modifier = Modifier
-                    .haze(scrollBehavior.state.collapsedFraction),
+                    .blurEffect(),
                 title = { Text(stringResource(R.string.umount_path_manager)) },
                 navigationIcon = {
                     val navigator = LocalNavigator.current
@@ -111,11 +112,15 @@ fun UmountManagerScreen() {
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor =
-                        if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                        else MaterialTheme.colorScheme.surfaceContainer,
+                        if (ThemeConfig.isEnableBlur)
+                            Color.Transparent
+                        else
+                            MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
                     scrolledContainerColor =
-                        if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                        else MaterialTheme.colorScheme.surfaceContainer,
+                        if (ThemeConfig.isEnableBlur)
+                            Color.Transparent
+                        else
+                            MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
                 )
             )
         },
@@ -159,7 +164,7 @@ fun UmountManagerScreen() {
                 },
                 modifier = Modifier
                     .fillMaxSize()
-                    .hazeSource()
+                    .blurSource()
             ) {
                 LazyColumn(
                     modifier = Modifier

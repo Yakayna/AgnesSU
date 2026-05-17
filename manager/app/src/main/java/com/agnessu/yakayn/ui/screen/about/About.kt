@@ -60,8 +60,8 @@ import com.agnessu.yakayn.ui.navigation.Navigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -72,8 +72,7 @@ fun AboutScreen() {
     Scaffold(
         topBar = {
             LargeFlexibleTopAppBar(
-                modifier = Modifier.haze(
-                    scrollBehavior.state.collapsedFraction
+                modifier = Modifier.blurEffect(
                 ),
                 windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
                 title = { Text(text = stringResource(id = R.string.about)) },
@@ -108,7 +107,7 @@ fun AboutScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .hazeSource(),
+                .blurSource(),
         ) {
             item {
                 Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
@@ -134,7 +133,10 @@ fun AboutScreen() {
                     ),
                     message = AnnotatedString.fromHtml(
                         htmlString = stringResource(
-                            id = R.string.about_anime_character_sticker
+                            id = R.string.about_anime_character_sticker,
+                            "<b>怡子曰曰</b>",
+                            "<b>明风 OuO</b>",
+                            "<b><a href=\"https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt\">CC BY-NC-SA 4.0</a></b>"
                         ),
                         linkStyles = TextLinkStyles(
                             style = SpanStyle(

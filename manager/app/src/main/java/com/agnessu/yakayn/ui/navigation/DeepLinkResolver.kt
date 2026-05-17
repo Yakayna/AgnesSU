@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import com.agnessu.yakayn.ui.screen.FlashIt
-import com.resukisu.resukisu.ui.util.downloader.DownloadService
+import com.agnessu.yakayn.ui.util.downloader.DownloadService
 
 /**
  * Deep link resolution: maps external Intent/Uri to an initial back stack.

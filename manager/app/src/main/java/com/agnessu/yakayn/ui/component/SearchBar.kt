@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.dp
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
+import com.agnessu.yakayn.ui.theme.blurEffect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -230,8 +230,7 @@ fun SearchAppBar(
             )
             .then(
                 if (haze) {
-                    Modifier.haze(
-                        scrollBehavior?.state?.collapsedFraction ?: 1f
+                    Modifier.blurEffect(
                     )
                 } else Modifier
             )

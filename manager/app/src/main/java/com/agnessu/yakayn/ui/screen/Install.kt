@@ -93,10 +93,10 @@ import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.CardConfig.cardAlpha
 import com.agnessu.yakayn.ui.theme.ThemeConfig
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.getCardColors
 import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
 import com.agnessu.yakayn.ui.util.LkmSelection
 import com.agnessu.yakayn.ui.util.getAvailablePartitions
 import com.agnessu.yakayn.ui.util.getCurrentKmi
@@ -315,7 +315,7 @@ fun InstallScreen(
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .verticalScroll(rememberScrollState())
-                .hazeSource()
+                .blurSource()
                 .padding(top = 12.dp)
         ) {
             SelectInstallMethod(
@@ -1071,8 +1071,7 @@ private fun TopBar(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior.state.collapsedFraction
+        modifier = Modifier.blurEffect(
         ),
         title = {
             Text(

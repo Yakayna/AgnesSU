@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.ui.util.downloader
+package com.agnessu.yakayn.ui.util.downloader
 
 import android.content.Context
 import android.content.Intent

@@ -108,14 +108,15 @@ import com.agnessu.yakayn.ui.component.rememberLoadingDialog
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.screen.LabelText
+import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.CardConfig.cardElevation
 import com.agnessu.yakayn.ui.theme.ThemeConfig
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.getCardColors
 import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.checkNewVersion
+import com.agnessu.yakayn.ui.util.downloader.checkNewVersion
 import com.agnessu.yakayn.ui.util.module.LatestVersionInfo
 import com.agnessu.yakayn.ui.util.reboot
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
@@ -179,7 +180,7 @@ fun HomePage(
             onRefresh = { viewModel.refreshData(context) },
             modifier = Modifier
                 .fillMaxSize()
-                .hazeSource(),
+                .blurSource(),
             indicator = {
                 PullToRefreshDefaults.LoadingIndicator(
                     modifier = Modifier
@@ -262,6 +263,21 @@ fun HomePage(
                     }
 
 
+                    if (BuildConfig.IS_PR_BUILD || Natives.isPrBuild) {
+                        WarningCard(
+                            message = stringResource(
+                                id = R.string.home_pr_build_warning
+                            ),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Error,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                    }
 
                     if (viewModel.systemStatus.kernelPatchImplement == Natives.KernelPatchImplement.KERNEL_PATCH_OFFICIAL) {
                         WarningCard(
@@ -398,21 +414,23 @@ private fun TopBar(
     val navigator = LocalNavigator.current
 
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior?.state?.collapsedFraction ?: 1f
-        ),
+        modifier = Modifier.blurEffect(),
         title = {
             Text(
-                text = stringResource(R.string.app_name)
+                text = "AgnesSU <3 "
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer,
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
             scrolledContainerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer,
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
         ),
         actions = {
             if (viewModel.isCoreDataLoaded) {

@@ -59,6 +59,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +81,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.agnessu.yakayn.R
+import com.agnessu.yakayn.ui.activity.PermissionRequestInterface
 import com.agnessu.yakayn.ui.component.ConfirmResult
 import com.agnessu.yakayn.ui.component.GithubMarkdown
 import com.agnessu.yakayn.ui.component.SwipeableSnackbarHost
@@ -88,10 +90,13 @@ import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.component.settings.SettingsBaseWidget
 import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
+import com.agnessu.yakayn.ui.navigation.Navigator
+import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
+import com.agnessu.yakayn.ui.util.LocalPermissionRequestInterface
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.module.ReleaseAssetInfo
 import com.agnessu.yakayn.ui.util.module.ReleaseInfo
@@ -125,8 +130,7 @@ fun OnlineModuleDetailScreen(module: ModuleRepoViewModel.RepoModule) {
     Scaffold(
         topBar = {
             Column(
-                modifier = Modifier.haze(
-                    scrollBehavior.state.collapsedFraction
+                modifier = Modifier.blurEffect(
                 )
             ) {
                 LargeFlexibleTopAppBar(
@@ -153,11 +157,15 @@ fun OnlineModuleDetailScreen(module: ModuleRepoViewModel.RepoModule) {
                     },
                     colors = TopAppBarDefaults.topAppBarColors().copy(
                         containerColor =
-                            if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                            else MaterialTheme.colorScheme.surfaceContainer,
+                            if (ThemeConfig.isEnableBlur)
+                                Color.Transparent
+                            else
+                                MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
                         scrolledContainerColor =
-                            if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                            else MaterialTheme.colorScheme.surfaceContainer
+                            if (ThemeConfig.isEnableBlur)
+                                Color.Transparent
+                            else
+                                MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha)
                     ),
                     windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
                 )
@@ -165,8 +173,10 @@ fun OnlineModuleDetailScreen(module: ModuleRepoViewModel.RepoModule) {
                 PrimaryTabRow(
                     selectedTabIndex = pagerState.currentPage,
                     containerColor =
-                        if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                        else MaterialTheme.colorScheme.surfaceContainer,
+                        if (ThemeConfig.isEnableBlur)
+                            Color.Transparent
+                        else
+                            MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     tabTitles.forEachIndexed { index, title ->
@@ -203,7 +213,7 @@ fun OnlineModuleDetailScreen(module: ModuleRepoViewModel.RepoModule) {
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .hazeSource()
+                .blurSource()
         ) {
 
             HorizontalPager(
@@ -381,6 +391,7 @@ fun ReleaseCard(
 ) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
+    val permissionRequestInterface = LocalPermissionRequestInterface.current
     val confirmInstallTitle =
         stringResource(R.string.confirm_install_module_title, module.moduleName)
     val confirmDialog = rememberConfirmDialog()
@@ -454,6 +465,7 @@ fun ReleaseCard(
 
                             downloadAssetAndInstall(
                                 context,
+                                permissionRequestInterface,
                                 module,
                                 assetInfo,
                                 navigator,
@@ -565,5 +577,27 @@ fun ReleaseCardPreview() {
             )
         }
     )
-    ReleaseCard(initFakeRepoModuleForPreview(), release, rememberCoroutineScope())
+
+    val fakeModule = initFakeRepoModuleForPreview()
+
+    CompositionLocalProvider(
+        LocalNavigator provides Navigator(Route.ModuleRepoDetail(fakeModule)),
+        LocalPermissionRequestInterface provides object : PermissionRequestInterface {
+            override fun requestPermission(
+                permission: String,
+                callback: (Boolean) -> Unit,
+                requestDescription: String
+            ) {
+            }
+
+            override fun requestPermissions(
+                permissions: Array<String>,
+                callback: (Map<String, @JvmSuppressWildcards Boolean>) -> Unit,
+                requestDescription: Map<String, String>
+            ) {
+            }
+        },
+    ) {
+        ReleaseCard(fakeModule, release, rememberCoroutineScope())
+    }
 }

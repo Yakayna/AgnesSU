@@ -79,9 +79,9 @@ import com.agnessu.yakayn.ui.component.SwipeableSnackbarHost
 import com.agnessu.yakayn.ui.component.rememberConfirmDialog
 import com.agnessu.yakayn.ui.component.rememberCustomDialog
 import com.agnessu.yakayn.ui.component.rememberFabVisibilityState
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.getCardColors
 import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.hazeSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.getRootShell
 import com.agnessu.yakayn.ui.util.loadKpmModule
@@ -375,7 +375,7 @@ fun KpmPage(bottomPadding: Dp) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .hazeSource(),
+                .blurSource(),
         ) {
             Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
             if (!isNoticeClosed) {

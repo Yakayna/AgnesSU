@@ -77,8 +77,8 @@ import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.forceStopApp
 import com.agnessu.yakayn.ui.util.getSepolicy
@@ -152,7 +152,7 @@ fun AppProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .hazeSource(),
+                .blurSource(),
             topPadding = paddingValues.calculateTopPadding(),
             appGroup = appGroup,
             appIcon = {
@@ -495,8 +495,7 @@ private fun TopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior?.state?.collapsedFraction ?: 1f
+        modifier = Modifier.blurEffect(
         ),
         title = {
             Text(

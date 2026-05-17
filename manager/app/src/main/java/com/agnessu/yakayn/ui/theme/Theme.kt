@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +45,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
 import androidx.core.graphics.drawable.toBitmap
@@ -59,17 +59,17 @@ import com.kyant.m3color.scheme.SchemeTonalSpot
 import com.kyant.m3color.score.Score
 import com.agnessu.yakayn.ui.theme.util.BackgroundTransformation
 import com.agnessu.yakayn.ui.theme.util.saveTransformedBackground
-import com.agnessu.yakayn.ui.util.LocalHazeState
+import com.agnessu.yakayn.ui.util.LocalBlurState
 import com.agnessu.yakayn.ui.webui.MonetColorsProvider
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import java.io.File
 import java.io.FileOutputStream
 
@@ -88,6 +88,7 @@ object ThemeConfig {
     var preventBackgroundRefresh by mutableStateOf(false)
     var isHighContrastMode by mutableStateOf(false)
     var isEnableBlur by mutableStateOf(false)
+    var isEnableBlurExp by mutableStateOf(false)
     var isUseBackgroundSeedColor by mutableStateOf(false)
 
     // 主题变化检测
@@ -200,6 +201,13 @@ object BackgroundManager {
         }
     }
 
+    fun saveEnableBlurExp(context: Context, enable: Boolean) {
+        ThemeConfig.isEnableBlurExp = enable
+        context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE).edit {
+            putBoolean("enable_blur_exp", enable)
+        }
+    }
+
     fun saveUseBackgroundSeedColor(context: Context, enable: Boolean) {
         ThemeConfig.isUseBackgroundSeedColor = enable
         context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE).edit {
@@ -261,6 +269,7 @@ object BackgroundManager {
 
         ThemeConfig.backgroundDim = prefs.getFloat("background_dim", 0f).coerceIn(0f, 1f)
         ThemeConfig.isEnableBlur = prefs.getBoolean("enable_blur", false)
+        ThemeConfig.isEnableBlurExp = prefs.getBoolean("enable_blur_exp", false)
         ThemeConfig.isUseBackgroundSeedColor = prefs.getBoolean("use_background_seed_color", false)
         ThemeConfig.isHighContrastMode = prefs.getBoolean("high_contrast_mode", false)
     }
@@ -428,40 +437,43 @@ var backgroundImagePainter: AsyncImagePainter? by mutableStateOf(null)
 var backgroundSeedColor by mutableIntStateOf(0)
 
 /**
- * Captures background content for hazeEffect child nodes,
- * It will only work when hazeState available
+ * Captures background content for blurEffect child nodes,
+ * It will only work when blurState available
  * @return modified modifier
  */
 @Composable
-fun Modifier.hazeSource(): Modifier {
-    return LocalHazeState.current?.let {
-        hazeSource(it)
+fun Modifier.blurSource(): Modifier {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return this
+
+    return LocalBlurState.current?.let {
+        this.then(Modifier.layerBackdrop(it))
     } ?: this
 }
 
 /**
- * Render haze when hazeState available
- * @param alpha the alpha of hazeEffect
+ * Render blur when backdrop available
  * @return modified modifier
  */
 @Composable
-fun Modifier.haze(
-    alpha: Float = 1f
-): Modifier {
-    return LocalHazeState.current?.let {
-        val dark = isInDarkTheme(ThemeConfig.forceDarkMode)
+fun Modifier.blurEffect(): Modifier {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return this
 
-        val hazeStyle = HazeStyle(
-            backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tint = HazeTint(Color.Transparent)
+    return LocalBlurState.current?.let { backdrop ->
+        val blendColor =
+            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)
+
+        this.then(
+            Modifier.textureBlur(
+                backdrop = backdrop,
+                shape = RectangleShape,
+                blurRadius = 25f,
+                colors = BlurColors(
+                    blendColors = listOf(
+                        BlendColorEntry(color = blendColor)
+                    )
+                )
+            )
         )
-
-        hazeEffect(it) {
-            style = hazeStyle
-            blurRadius = 30.dp
-            noiseFactor = if (dark) 0f else 0.2f
-            this.alpha = alpha
-        }
     } ?: this
 }
 

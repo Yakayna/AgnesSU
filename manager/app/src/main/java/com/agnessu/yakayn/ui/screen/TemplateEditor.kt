@@ -52,8 +52,8 @@ import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.component.settings.SettingsTextFieldWidget
 import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.deleteAppProfileTemplate
 import com.agnessu.yakayn.ui.util.getAppProfileTemplate
 import com.agnessu.yakayn.ui.util.setAppProfileTemplate
@@ -138,7 +138,7 @@ fun TemplateEditorScreen(
                     // disable click and ripple if readOnly
                     readOnly
                 }
-                .hazeSource()
+                .blurSource()
         ) {
             SplicedColumnGroup {
                 if (isCreation) {
@@ -276,8 +276,7 @@ private fun TopBar(
     scrollBehavior: TopAppBarScrollBehavior
 ) {
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior.state.collapsedFraction
+        modifier = Modifier.blurEffect(
         ),
         title = {
             Text(

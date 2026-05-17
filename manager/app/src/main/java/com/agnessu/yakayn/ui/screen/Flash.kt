@@ -84,9 +84,10 @@ import com.agnessu.yakayn.ui.component.rememberCustomDialog
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
+import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LkmSelection
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.flashModule
@@ -547,7 +548,7 @@ fun FlashScreen(flashIt: FlashIt) {
                 .fillMaxSize(1f)
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .hazeSource(),
+                .blurSource(),
         ) {
             if (flashIt is FlashIt.FlashModules) {
                 ModuleInstallProgressBar(
@@ -764,8 +765,7 @@ private fun TopBar(
     }
 
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior.state.collapsedFraction
+        modifier = Modifier.blurEffect(
         ),
         title = {
             Text(
@@ -797,11 +797,15 @@ private fun TopBar(
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer,
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
             scrolledContainerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer,
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
         ),
         actions = {
             IconButton(onClick = onSave) {

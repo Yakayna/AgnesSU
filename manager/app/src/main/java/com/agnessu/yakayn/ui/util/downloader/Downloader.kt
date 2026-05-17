@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.ui.util.downloader
+package com.agnessu.yakayn.ui.util.downloader
 
 import android.Manifest
 import android.content.Context
@@ -121,7 +121,7 @@ fun download(
 
 fun checkNewVersion(): LatestVersionInfo {
     if (!isNetworkAvailable(ksuApp)) return LatestVersionInfo()
-    val url = "https://api.github.com/repos/ReSukiSU/ReSukiSU/releases/latest"
+    val url = "https://api.github.com/repos/Yakayna/AgnesSU/releases/latest"
     // default null value if failed
     val defaultValue = LatestVersionInfo()
     runCatching {

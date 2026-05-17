@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.system.OsConstants
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Fence
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Save
@@ -108,9 +110,10 @@ import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.screen.FlashIt
+import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.execKsud
 import com.agnessu.yakayn.ui.util.getBugreportFile
@@ -184,7 +187,7 @@ fun SettingsPage(bottomPadding: Dp) {
             modifier =
                 Modifier
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
-                    .hazeSource(),
+                    .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 start = 0.dp,
@@ -401,6 +404,57 @@ fun SettingsPage(bottomPadding: Dp) {
                                         if (Natives.setSuLogEnabled(checked)) {
                                             execKsud("feature save", true)
                                             isSuLogEnabled = checked
+                                        }
+                                    }
+                                )
+                            }
+
+
+                            item {
+                                var isSelinuxHideEnabled by remember { mutableStateOf(Natives.isSelinuxHideEnabled()) }
+
+                                var savedSelinuxHideStatus by rememberSaveable { mutableStateOf("") }
+                                val selinuxHideStatus by produceState(initialValue = savedSelinuxHideStatus) {
+                                    value = withContext(Dispatchers.IO) {
+                                        savedSelinuxHideStatus = getFeatureStatus("selinux_hide")
+                                        return@withContext savedSelinuxHideStatus
+                                    }
+                                }
+                                val selinuxHideSummary = when (selinuxHideStatus) {
+                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
+                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
+                                    else -> stringResource(id = R.string.settings_selinux_hide_summary)
+                                }
+                                SettingsSwitchWidget(
+                                    icon = Icons.Filled.Policy,
+                                    title = stringResource(id = R.string.settings_selinux_hide),
+                                    description = selinuxHideSummary,
+                                    enabled = selinuxHideStatus == "supported",
+                                    checked = isSelinuxHideEnabled,
+                                    onCheckedChange = { checked ->
+                                        val status = Natives.setSelinuxHideEnabled(checked)
+                                        execKsud("feature save", true)
+                                        isSelinuxHideEnabled = checked
+
+                                        when (status) {
+                                            0 -> {}
+                                            -OsConstants.EAGAIN -> {
+                                                Toast.makeText(
+                                                    context,
+                                                    R.string.settings_selinux_hide_reboot_required,
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                            else -> {
+                                                Toast.makeText(
+                                                    context,
+                                                    ksuApp.getString(
+                                                        R.string.settings_selinux_hide_failed,
+                                                        status
+                                                    ),
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
                                         }
                                     }
                                 )
@@ -830,19 +884,22 @@ private fun TopBar(
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
     LargeFlexibleTopAppBar(
-        modifier = Modifier.haze(
-            scrollBehavior?.state?.collapsedFraction ?: 1f
+        modifier = Modifier.blurEffect(
         ),
         title = {
             Text(text = stringResource(R.string.settings))
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer,
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
             scrolledContainerColor =
-                if (ThemeConfig.backgroundImageLoaded) Color.Transparent
-                else MaterialTheme.colorScheme.surfaceContainer
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha)
         ),
         windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
         scrollBehavior = scrollBehavior

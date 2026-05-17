@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.ui.util.downloader
+package com.agnessu.yakayn.ui.util.downloader
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -31,10 +31,10 @@ class DownloadService : Service() {
 
     companion object {
         const val CHANNEL_ID = "download_channel"
-        const val ACTION_DOWNLOAD = "com.resukisu.resukisu.action.DOWNLOAD"
-        const val ACTION_CANCEL = "com.resukisu.resukisu.action.CANCEL_DOWNLOAD"
-        const val ACTION_DISMISS_DOWNLOAD = "com.resukisu.resukisu.action.DISMISS_DOWNLOAD"
-        const val ACTION_INSTALL_MODULE = "com.resukisu.resukisu.action.INSTALL_MODULE"
+        const val ACTION_DOWNLOAD = "com.agnessu.yakayn.action.DOWNLOAD"
+        const val ACTION_CANCEL = "com.agnessu.yakayn.action.CANCEL_DOWNLOAD"
+        const val ACTION_DISMISS_DOWNLOAD = "com.agnessu.yakayn.action.DISMISS_DOWNLOAD"
+        const val ACTION_INSTALL_MODULE = "com.agnessu.yakayn.action.INSTALL_MODULE"
         const val EXTRA_URL = "url"
         const val EXTRA_FILE_NAME = "fileName"
         const val EXTRA_DOWNLOAD_ID = "downloadId"

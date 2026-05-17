@@ -148,12 +148,12 @@ import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.LabelText
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.getCardColors
 import com.agnessu.yakayn.ui.theme.getCardElevation
-import com.agnessu.yakayn.ui.theme.hazeSource
-import com.agnessu.yakayn.ui.util.DownloadListener
+import com.agnessu.yakayn.ui.util.LocalPermissionRequestInterface
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
-import com.agnessu.yakayn.ui.util.download
+import com.agnessu.yakayn.ui.util.downloader.download
 import com.agnessu.yakayn.ui.util.hasMagisk
 import com.agnessu.yakayn.ui.util.module.ModuleUtils
 import com.agnessu.yakayn.ui.util.module.Shortcut
@@ -286,9 +286,9 @@ fun ModulePage(bottomPadding: Dp) {
 
     LaunchedEffect(Unit) {
         viewModel.search = ""
+        viewModel.sortEnabledFirst = prefs.getBoolean("module_sort_enabled_first", false)
+        viewModel.sortActionFirst = prefs.getBoolean("module_sort_action_first", false)
         if (viewModel.moduleList.isEmpty() || viewModel.isNeedRefresh) {
-            viewModel.sortEnabledFirst = prefs.getBoolean("module_sort_enabled_first", false)
-            viewModel.sortActionFirst = prefs.getBoolean("module_sort_action_first", false)
             viewModel.fetchModuleList()
         }
     }
@@ -424,9 +424,6 @@ fun ModulePage(bottomPadding: Dp) {
                     viewModel = viewModel,
                     listState = listState,
                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                    onInstallModule = {
-                        navigator.push(Route.Flash(FlashIt.FlashModule(it)))
-                    },
                     onUpdateModule = {
                         navigator.push(Route.Flash(FlashIt.FlashModuleUpdate(it)))
                     },
@@ -662,7 +659,6 @@ private fun ModuleList(
     listState: LazyListState,
     modifier: Modifier = Modifier,
     boxModifier: Modifier = Modifier,
-    onInstallModule: (Uri) -> Unit,
     onUpdateModule: (Uri) -> Unit,
     onClickModule: (id: String, name: String, hasWebUi: Boolean) -> Unit,
     context: Context,
@@ -670,6 +666,7 @@ private fun ModuleList(
     bottomPadding : Dp,
     topPadding : Dp,
 ) {
+    val permissionRequestInterface = LocalPermissionRequestInterface.current
     val pullRefreshState = rememberPullToRefreshState()
     val failedEnable = stringResource(R.string.module_failed_to_enable)
     val failedDisable = stringResource(R.string.module_failed_to_disable)
@@ -687,7 +684,6 @@ private fun ModuleList(
     val downloadingText = stringResource(R.string.module_downloading)
     val startDownloadingText = stringResource(R.string.module_start_downloading)
     val fetchChangeLogFailed = stringResource(R.string.module_changelog_failed)
-    val downloadErrorText = stringResource(R.string.module_download_error)
 
     val loadingDialog = rememberLoadingDialog()
     val confirmDialog = rememberConfirmDialog()
@@ -838,9 +834,9 @@ private fun ModuleList(
         withContext(Dispatchers.IO) {
             download(
                 context,
+                permissionRequestInterface,
                 downloadUrl,
                 fileName,
-                downloading,
                 onDownloaded = { uri ->
                     onUpdateModule(uri)
                 },
@@ -849,11 +845,6 @@ private fun ModuleList(
                         Toast.makeText(context, downloading, Toast.LENGTH_SHORT).show()
                     }
                 },
-                onError = { errorMsg ->
-                    launch(Dispatchers.Main) {
-                        Toast.makeText(context, "$downloadErrorText: $errorMsg", Toast.LENGTH_LONG).show()
-                    }
-                }
             )
         }
     }
@@ -941,7 +932,7 @@ private fun ModuleList(
         },
         modifier = boxModifier
             .fillMaxSize()
-            .hazeSource(),
+            .blurSource(),
         indicator = {
             PullToRefreshDefaults.LoadingIndicator(
                 modifier = Modifier
@@ -1055,8 +1046,6 @@ private fun ModuleList(
                 Spacer(modifier = Modifier.height(bottomPadding))
             }
         }
-
-        DownloadListener(context, onInstallModule)
     }
 
     if (showShortcutDialog.value) {

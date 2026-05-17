@@ -37,15 +37,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.agnessu.yakayn.ui.MainActivity
 import com.agnessu.yakayn.ui.screen.BottomBarDestination
+import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
+import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.util.LocalHandlePageChange
 import com.agnessu.yakayn.ui.util.LocalSelectedPage
 import com.agnessu.yakayn.ui.util.getKpmModuleCount
 import com.agnessu.yakayn.ui.util.getModuleCount
 import com.agnessu.yakayn.ui.util.getSuperuserCount
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -93,19 +92,18 @@ fun NavigationBar(
         }
     }
 
-    if (ThemeConfig.backgroundImageLoaded) HazeStyle(
-        backgroundColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tint = HazeTint(Color.Transparent)
-    ) else null
-
     if (isBottomBar) {
         FlexibleBottomAppBar(
             modifier = Modifier
                 .windowInsetsPadding(
                     WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)
                 )
-                .haze(),
-            containerColor = if (ThemeConfig.backgroundImageLoaded) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
+                .blurEffect(),
+            containerColor =
+                if (ThemeConfig.isEnableBlur)
+                    Color.Transparent
+                else
+                    MaterialTheme.colorScheme.surfaceContainerHigh.copy(CardConfig.cardAlpha),
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             destinations.forEachIndexed { index, destination ->
@@ -128,9 +126,13 @@ fun NavigationBar(
                 .windowInsetsPadding(
                     WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)
                 )
-                .haze(),
+                .blurEffect(),
             colors = WideNavigationRailColors(
-                containerColor = if (ThemeConfig.backgroundImageLoaded) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerHigh,
+                containerColor =
+                    if (ThemeConfig.isEnableBlur)
+                        Color.Transparent
+                    else
+                        MaterialTheme.colorScheme.surfaceContainerHigh.copy(CardConfig.cardAlpha),
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modalContainerColor = WideNavigationRailDefaults.colors().modalContainerColor,
                 modalScrimColor = WideNavigationRailDefaults.colors().modalScrimColor,

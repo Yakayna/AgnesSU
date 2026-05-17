@@ -112,7 +112,7 @@ import com.agnessu.yakayn.ui.component.settings.splicedLazyColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 import com.agnessu.yakayn.ui.screen.LabelText
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.module.ModuleModify
 import com.agnessu.yakayn.ui.viewmodel.AppCategory
@@ -397,7 +397,7 @@ private fun SuperUserContent(
         isRefreshing = viewModel.isRefreshing,
         modifier = Modifier
             .fillMaxSize()
-            .hazeSource(),
+            .blurSource(),
         indicator = {
             PullToRefreshDefaults.LoadingIndicator(
                 modifier = Modifier

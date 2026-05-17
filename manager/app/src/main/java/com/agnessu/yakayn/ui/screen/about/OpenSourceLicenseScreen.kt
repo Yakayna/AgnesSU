@@ -57,8 +57,8 @@ import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.theme.haze
-import com.agnessu.yakayn.ui.theme.hazeSource
+import com.agnessu.yakayn.ui.theme.blurEffect
+import com.agnessu.yakayn.ui.theme.blurSource
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -85,8 +85,7 @@ fun OpenSourceLicenseScreen() {
         contentColor = MaterialTheme.colorScheme.onSurface,
         topBar = {
             LargeFlexibleTopAppBar(
-                modifier = Modifier.haze(
-                    scrollBehavior.state.collapsedFraction
+                modifier = Modifier.blurEffect(
                 ),
                 windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
                 title = { Text(text = stringResource(id = R.string.open_source_license)) },
@@ -125,7 +124,7 @@ fun OpenSourceLicenseScreen() {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
-                .hazeSource(),
+                .blurSource(),
             contentPadding = paddingValues,// PaddingValues(horizontal = 16.dp),
             colors = LibraryDefaults.libraryColors(
                 libraryBackgroundColor = MaterialTheme.colorScheme.surfaceBright.copy(
