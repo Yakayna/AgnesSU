@@ -24,8 +24,8 @@ compose-ui = "1.11.0"
 documentfile = "1.1.0"
 ndk = "29.0.14206865"
 foundation = "1.11.0"
-aboutLibraries = "14.2.0"
-miuix = "0.10.0"
+aboutLibraries = "14.1.0"
+miuix = "0.9.0"
 
 [plugins]
 agp-app = { id = "com.android.application", version.ref = "agp" }
