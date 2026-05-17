@@ -240,5 +240,7 @@ dependencies {
 
     implementation(libs.miuix)
     implementation(libs.miuix.icons)
+    implementation(libs.miuix.blur)
+    implementation(libs.miuix.navigation)
 
 }
