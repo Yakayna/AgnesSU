@@ -3,6 +3,7 @@
 #include <linux/string.h>
 #include <linux/version.h>
 
+#include "klog.h" // IWYU pragma: keep
 #include "infra/symbol_resolver.h"
 #include "compat/kernel_compat.h"
 
@@ -98,7 +99,7 @@ static int lookup_symbol_variant_cb(void *data, const char *name, struct module 
 
     if (strcmp(name, ctx->symbol_name) != 0) {
         if (name_len <= ctx->symbol_len || strncmp(name, ctx->symbol_name, ctx->symbol_len) != 0 ||
-            name[ctx->symbol_len] != '.')
+            (name[ctx->symbol_len] != '.' && name[ctx->symbol_len] != '$'))
             return 0;
     }
 
@@ -158,13 +159,19 @@ void *ksu_resolve_symbol_for_functable_hook(const char *symbol_name)
     addr = (void *)find_kernel_symbol_exact(cfi_name);
     if (addr)
         return addr;
-#endif
 
+    addr = resolve_symbol_variant(symbol_name, symbol_len);
+    if (addr)
+        return addr;
+
+    return (void *)find_kernel_symbol_exact(symbol_name);
+#else
     addr = (void *)find_kernel_symbol_exact(symbol_name);
     if (addr)
         return addr;
 
     return resolve_symbol_variant(symbol_name, symbol_len);
+#endif
 }
 
 void __init ksu_init_symbol_resolver()

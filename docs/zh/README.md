@@ -1,33 +1,40 @@
 # AgnesSU
-<img align='right' src='AgnesSU_blue.svg' width='220px' alt="AgnesSU Icon">
+<img align='right' src='ReSukiSU_blue.svg' width='220px' alt="AgnesSU Icon">
 
 
 [English](../README.md) | **简体中文** | [日本語](../ja/README.md) | [Türkçe](../tr/README.md) | [Русский](../ru/README.md)
 
 一个 [`SukiSU-Ultra/SukiSU-Ultra`](https://github.com/SukiSU-Ultra/SukiSU-Ultra) 的下游分支,添加了一些有趣的变更，且更加稳定。
 
-[![最新发行](https://img.shields.io/github/v/release/AgnesSU/AgnesSU?label=Release&logo=github)](https://github.com/agnessu/yakayn/releases/latest)
-[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/AgnesSU)
-[![协议: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-[![GitHub 协议](https://img.shields.io/github/license/tiann/KernelSU?logo=gnu)](/LICENSE)
+[![最新发行](https://img.shields.io/github/v/release/Yakayna/AgnesSU?label=Release&logo=github)](https://github.com/Yakayna/AgnesSU/releases/latest)
+[![最新 CI 构建（nightly.link）](https://img.shields.io/badge/nightly.link-%E6%9C%80%E6%96%B0%20CI%20%E6%9E%84%E5%BB%BA-800080)](https://nightly.link/Yakayna/AgnesSU/workflows/build-manager/main)
+[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/agnescuteee)
+[![Kernel License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![其他部分 License：GPL v3](https://img.shields.io/github/license/Yakayna/AgnesSU?logo=gnu)](/LICENSE)
 
 ## 特性
 
 1. 基于内核的 `su` 和权限管理。
-2. 基于 [Magic Mount](https://github.com/5ec1cff/KernelSU) 的模块系统。
-   > **注意：** 模块挂载已由元模块接管，不再支持
+2. 基于 [metamodules](https://kernelsu.org/zh_CN/guide/metamodule.html) 的模块系统：可插拔的模块架构。
 3. [App Profile](https://kernelsu.org/zh_CN/guide/app-profile.html): 把 Root 权限关进笼子里。
 4. 支持 non-GKI 与 GKI 1.0。
-5. KPM 支持
-6. 可调整管理器外观，可自定义 susfs 配置。
+5. 可调整管理器外观，可自定义 susfs 配置。
+6. 多管理器支持，默认支持使用 [官方KernelSU](https://github.com/tiann/KernelSU)/[RKSU](https://github.com/rsuntk/KernelSU)/[MKSU](https://github.com/5ec1cff/KernelSU)/[SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) 作为管理器与 AgnesSU 内核共同工作
 
 ## 兼容状态
 
 - AgnesSU 官方支持 GKI 2.0 的设备（内核版本 5.10 以上）。
 
-- 旧内核也是兼容的（最低 3.4+），不过需要自己编译内核。
+- 旧内核也是兼容的（3.4+），不过需要自己编译内核。
 
-- 目前支持架构 : `arm64-v8a`、`armeabi-v7a`、`X86_64`。
+- 目前支持架构 : `arm64-v8a`、`armeabi-v7a`、`x86_64`。
+
+- `Tracepoint Syscall Redirect Hook` 只支持在 GKI2 内核(5.10+) 工作
+
+## Hook 模式
+- `Tracepoint Syscall Redirect hook` 默认模式, 来自于 [上游](https://github.com/tiann/KernelSU), 但是只支持 GKI2 内核且为 `arm64-v8a` 或 `x86_64` 架构
+- `Manual Hook` 兼容性最强的钩子，支持 Linux Kernel 3.4 - Linux Kernel 6.18
+- `SuSFS Inline Hook` 一个来自 [SuSFS](https://github.com/simonpunk/susfs4ksu) 的 Hook, 类似于 `Manual Hook`, 但是由 `SuSFS` 项目，而非本项目
 
 ## 集成
 
@@ -35,30 +42,15 @@
 
 ## 参与翻译
 
-要将 AgnesSU 翻译成您的语言，或完善现有的翻译，请使用 [Crowdin](https://crowdin.com/project/AgnesSU).
-
-## KPM 支持
-
-- 基于 KernelPatch 开发，移除了与 KernelSU 重复的功能。
-- 正在进行（WIP）：通过集成附加功能来扩展 APatch 兼容性，以确保跨不同实现的兼容性。
-
-**开源仓库**: [https://github.com/ShirkNeko/SukiSU_KernelPatch_patch](https://github.com/ShirkNeko/SukiSU_KernelPatch_patch)
-
-**KPM 模板**: [https://github.com/udochina/KPM-Build-Anywhere](https://github.com/udochina/KPM-Build-Anywhere)
-
-> [!Note]
->
-> 1. 需要 `CONFIG_KPM=y`
-> 2. Non-GKI 设备需要 `CONFIG_KALLSYMS=y` and `CONFIG_KALLSYMS_ALL=y`
-> 3. 对于低于 `4.19` 的内核，需要从 `4.19` 的 `set_memory.h` 进行反向移植。
+要将 AgnesSU 翻译成您的语言，或完善现有的翻译，请使用 [Weblate](https://hosted.weblate.org/engage/resukisu/).
 
 ## 许可证
 
 - 目录 `kernel` 下所有文件为 [GPL-2.0-only](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)。
-- 有动漫人物图片表情包的这些文件 `ic_launcher(?!.*alt.*).*` 的图像版权为[怡子曰曰](https://space.bilibili.com/10545509)所有，图像中的知识产权由[明风 OuO](https://space.bilibili.com/274939213)所有，矢量化由 @MiRinChan 完成，在使用这些文件之前，除了必须遵守 [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt) 以外，还需要遵守向前两者索要使用这些艺术内容的授权。
+- 有动漫人物图片表情包的这些文件 `ic_launcher(?!.*alt.*).*` 图标以特别的形式授权，怡子曰曰绘制，版权明风OuO所有。矢量化图标由本项目提供。详见 [`LICENSE_icon_English`](./LICENSE_icon_English) 与 [`LICENSE_icon_SC`](./LICENSE_icon_SC)。
 - 除上述文件及目录的其他部分均为 [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html)。
 
-## 赞助
+## 致谢
 
 - [ShirkNeko](https://afdian.com/a/shirkneko) (SukiSU 主要维护者)
 - [weishu](https://github.com/sponsors/tiann) (KernelSU 作者)
@@ -75,9 +67,18 @@
 - [OukaroMF](https://github.com/OukaroMF) 网站域名捐赠
 </details>
 
+## 本地化
+
+在 Weblate 上对 AgnesSU 的翻译做出贡献:
+
+https://hosted.weblate.org/engage/resukisu/
+
+[![翻译状态](https://hosted.weblate.org/widget/resukisu/multi-auto.svg)](https://hosted.weblate.org/engage/resukisu/)
+
 ## 鸣谢
 
-- [SukiSU-Ultra/SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)：上游
+- [KernelSU](https://github.com/tiann/KernelSU): 上游
+- [SukiSU-Ultra/SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)：分叉来源
 
 <details>
 <summary>SukiSU 的鸣谢</summary>

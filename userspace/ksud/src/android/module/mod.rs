@@ -4,22 +4,13 @@ pub mod module_config;
 #[cfg(unix)]
 use std::os::unix::{prelude::PermissionsExt, process::CommandExt};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     env::var as env_var,
     fs::{File, Permissions, canonicalize, copy, remove_dir_all, rename, set_permissions},
-    io::Cursor,
+    io::{Cursor, Read, Seek, Write},
     path::{Path, PathBuf},
     process::Command,
-    str::FromStr,
 };
-
-use anyhow::{Context, Result, anyhow, bail, ensure};
-use const_format::concatcp;
-use is_executable::is_executable;
-use java_properties::PropertiesIter;
-use log::{debug, info, warn};
-use regex_lite::Regex;
-use zip_extensions::zip_extract::zip_extract_file_to_memory;
 
 use crate::{
     android::{
@@ -32,9 +23,15 @@ use crate::{
             get_zip_uncompressed_size, getprop, switch_cgroups,
         },
     },
-    assets, defs,
+    assets, banner, defs,
     defs::{MODULE_DIR, MODULE_UPDATE_DIR, UPDATE_FILE_NAME},
 };
+use anyhow::{Context, Result, anyhow, bail, ensure};
+use const_format::concatcp;
+use is_executable::is_executable;
+use java_properties::PropertiesIter;
+use log::{debug, error, info, warn};
+use regex_lite::Regex;
 
 const INSTALLER_CONTENT: &str = include_str!("./installer.sh");
 const INSTALL_MODULE_SCRIPT: &str = concatcp!(
@@ -63,7 +60,7 @@ pub fn validate_module_id(module_id: &str) -> Result<()> {
 }
 
 /// Get common environment variables for script execution
-pub fn get_common_script_envs() -> Vec<(&'static str, String)> {
+pub fn get_common_script_envs(module_id: Option<&str>) -> Vec<(&'static str, String)> {
     let mut envs = vec![
         ("ASH_STANDALONE", "1".to_string()),
         ("KSU", "true".to_string()),
@@ -71,6 +68,8 @@ pub fn get_common_script_envs() -> Vec<(&'static str, String)> {
         ("KSU_KERNEL_VER_CODE", ksucalls::get_version().to_string()),
         ("KSU_VER_CODE", defs::VERSION_CODE.to_string()),
         ("KSU_VER", defs::VERSION_NAME.to_string()),
+        ("KSU_UAPI_VER", ksucalls::uapi_version().to_string()),
+        ("KSU_RUNTIME_MODE", ksucalls::runtime_mode().to_string()),
         (
             "PATH",
             format!(
@@ -81,6 +80,14 @@ pub fn get_common_script_envs() -> Vec<(&'static str, String)> {
         ),
     ];
 
+    if let Some(id) = module_id {
+        if validate_module_id(id).is_ok() {
+            envs.push(("KSU_MODULE", id.to_string()));
+        } else {
+            error!("Invalid module_id provided: {id}");
+        }
+    }
+
     if ksucalls::is_late_load() {
         envs.push(("KSU_LATE_LOAD", "1".to_string()));
     }
@@ -88,7 +95,7 @@ pub fn get_common_script_envs() -> Vec<(&'static str, String)> {
     envs
 }
 
-fn exec_install_script(module_file: &str, is_metamodule: bool) -> Result<()> {
+fn exec_install_script(module_file: &str, is_metamodule: bool, module_id: &str) -> Result<()> {
     let realpath = std::fs::canonicalize(module_file)
         .with_context(|| format!("realpath: {module_file} failed"))?;
 
@@ -98,7 +105,7 @@ fn exec_install_script(module_file: &str, is_metamodule: bool) -> Result<()> {
 
     let result = Command::new(assets::BUSYBOX_PATH)
         .args(["sh", "-c", &install_script])
-        .envs(get_common_script_envs())
+        .envs(get_common_script_envs(Some(module_id)))
         .env("OUTFD", "1")
         .env("ZIPFILE", realpath)
         .status()?;
@@ -165,10 +172,10 @@ pub fn load_sepolicy_rule() -> Result<()> {
         if !rule_file.exists() {
             return Ok(());
         }
-        info!("load policy: {}", &rule_file.display());
+        info!("load policy: {}", rule_file.display());
 
         if sepolicy::apply_file(&rule_file).is_err() {
-            warn!("Failed to load sepolicy.rule for {}", &rule_file.display());
+            warn!("Failed to load sepolicy.rule for {}", rule_file.display());
         }
         Ok(())
     })?;
@@ -232,12 +239,7 @@ pub fn exec_script<T: AsRef<Path>>(path: T, wait: bool) -> Result<()> {
         .current_dir(path.as_ref().parent().unwrap())
         .arg("sh")
         .arg(path.as_ref())
-        .envs(get_common_script_envs());
-
-    // Set KSU_MODULE environment variable if module_id was validated successfully
-    if let Some(id) = validated_module_id {
-        command = command.env("KSU_MODULE", id);
-    }
+        .envs(get_common_script_envs(validated_module_id));
 
     let result = if wait {
         command.status().map(|_| ())
@@ -364,6 +366,127 @@ pub fn prune_modules() -> Result<()> {
     Ok(())
 }
 
+const METADATA_FILE_CON: &str = "u:object_r:metadata_file:s0";
+
+// Prefer /metadata/watchdog/ when present, else /metadata.
+fn preinit_ksu_dir() -> &'static str {
+    if Path::new("/metadata/watchdog").is_dir() {
+        defs::PREINIT_DIR_WATCHDOG
+    } else {
+        defs::PREINIT_DIR_DEFAULT
+    }
+}
+
+fn collect_rc_files<P: AsRef<Path>>(
+    dir: P,
+    mod_id: Option<&str>,
+    out: &mut dyn Write,
+) -> Result<()> {
+    let dir = dir.as_ref();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Ok(());
+    };
+    let mut entries: Vec<_> = entries.flatten().collect();
+    entries.sort_by_key(std::fs::DirEntry::file_name);
+    for entry in entries {
+        let path = entry.path();
+        let Ok(meta) = entry.metadata() else { continue };
+        if meta.is_file() && path.extension().and_then(|s| s.to_str()) == Some("rc") {
+            if let Some(mod_id) = mod_id {
+                writeln!(out, "# === from {mod_id}:{} ===", path.display())?;
+            } else {
+                // Although the rc file itself is not executable, we still use its executable bit as a switch.
+                if !is_executable(&path) {
+                    continue;
+                }
+                writeln!(out, "# === from {} ===", path.display())?;
+            }
+            let content = std::fs::read(&path)
+                .with_context(|| format!("Failed to read rc {}", path.display()))?;
+            out.write_all(&content)?;
+            writeln!(out)?;
+        }
+    }
+    Ok(())
+}
+
+/// Rebuild PREINITDIR/modules.rc by concatenating *.rc from every enabled
+/// module. The kernel-side read hook splices this file into init.rc on the
+/// next boot.
+pub fn regenerate_preinit_rc() -> Result<()> {
+    let preinit_str = preinit_ksu_dir();
+    let preinit_dir = Path::new(preinit_str);
+    std::fs::create_dir_all(preinit_dir)
+        .with_context(|| format!("Failed to create {}", preinit_dir.display()))?;
+
+    let tmp_path_buf = preinit_dir.join(defs::MODULES_RC_TMP_FILE);
+    let out_path_buf = preinit_dir.join(defs::MODULES_RC_FILE);
+    let tmp_path = tmp_path_buf.as_path();
+    let out_path = out_path_buf.as_path();
+
+    {
+        let mut tmp = File::create(tmp_path)
+            .with_context(|| format!("Failed to create {}", tmp_path.display()))?;
+
+        // collect modules in alphabetical order, with their effective module path in the next boot
+        let mut modules: BTreeMap<String, Option<PathBuf>> = BTreeMap::new();
+        // collect common initrc first
+        collect_rc_files(Path::new(defs::ADB_DIR).join("initrc.d"), None, &mut tmp)?;
+        // modules_update/ first so freshly-installed modules win on id collision.
+        for src_dir in [defs::MODULE_UPDATE_DIR, defs::MODULE_DIR] {
+            let Ok(entries) = std::fs::read_dir(src_dir) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let module_path = entry.path();
+                if !module_path.is_dir() {
+                    continue;
+                }
+                let Some(id) = module_path.file_name().and_then(|s| s.to_str()) else {
+                    continue;
+                };
+                let id = id.to_string();
+                if module_path.join(defs::DISABLE_FILE_NAME).exists()
+                    || module_path.join(defs::REMOVE_FILE_NAME).exists()
+                {
+                    modules.insert(id, None);
+                    continue;
+                }
+                modules.entry(id).or_insert(Some(module_path));
+            }
+        }
+        for (id, path) in modules {
+            if let Some(path) = path {
+                collect_rc_files(path.join(defs::MODULE_INIT_RC_DIR), Some(&id), &mut tmp)?;
+            }
+        }
+        tmp.sync_all()?;
+    }
+
+    std::fs::rename(tmp_path, out_path).with_context(|| {
+        format!(
+            "Failed to rename {} -> {}",
+            tmp_path.display(),
+            out_path.display()
+        )
+    })?;
+
+    // SELinux label so the kernel's filp_open in init context can read it.
+    if let Err(e) = crate::android::restorecon::lsetfilecon(out_path, METADATA_FILE_CON) {
+        debug!("set context on {} failed: {e}", out_path.display());
+    }
+
+    // Clear stale file at the other candidate path.
+    let stale_dir = if preinit_str == defs::PREINIT_DIR_WATCHDOG {
+        defs::PREINIT_DIR_DEFAULT
+    } else {
+        defs::PREINIT_DIR_WATCHDOG
+    };
+    std::fs::remove_file(Path::new(stale_dir).join(defs::MODULES_RC_FILE)).ok();
+
+    Ok(())
+}
+
 pub fn handle_updated_modules() -> Result<()> {
     let modules_root = Path::new(MODULE_DIR);
     foreach_module(ModuleType::Updated, |updated_module| {
@@ -399,24 +522,14 @@ pub fn handle_updated_modules() -> Result<()> {
     Ok(())
 }
 
-fn install_module_to_system(zip: &str) -> Result<()> {
-    ensure_boot_completed()?;
-
-    // print banner
-    println!(include_str!("../banner"));
-
-    assets::ensure_binaries(false).with_context(|| "Failed to extract assets")?;
-
-    // first check if working dir is usable
-    ensure_dir_exists(defs::WORKING_DIR).with_context(|| "Failed to create working dir")?;
-    ensure_dir_exists(defs::BINARY_DIR).with_context(|| "Failed to create bin dir")?;
-
-    // read the module_id from zip, if failed it will return early.
-    let mut buffer: Vec<u8> = Vec::new();
-    let entry_path = PathBuf::from_str("module.prop")?;
-    let zip_path = PathBuf::from_str(zip)?;
-    let zip_path = zip_path.canonicalize()?;
-    zip_extract_file_to_memory(&zip_path, &entry_path, &mut buffer)?;
+fn read_module_prop_from_archive<R>(
+    archive: &mut zip::ZipArchive<R>,
+) -> Result<HashMap<String, String>>
+where
+    R: Read + Seek,
+{
+    let mut buffer = Vec::new();
+    archive.by_name("module.prop")?.read_to_end(&mut buffer)?;
 
     let mut module_prop = HashMap::new();
     PropertiesIter::new_with_encoding(Cursor::new(buffer), encoding_rs::UTF_8).read_into(
@@ -424,6 +537,27 @@ fn install_module_to_system(zip: &str) -> Result<()> {
             module_prop.insert(k, v);
         },
     )?;
+    Ok(module_prop)
+}
+
+fn install_module_to_system(zip: &str) -> Result<()> {
+    ensure_boot_completed()?;
+
+    // print banner
+    println!("{}", banner::print_banner());
+
+    assets::ensure_binaries(false).with_context(|| "Failed to extract assets")?;
+
+    // first check if working dir is usable
+    ensure_dir_exists(defs::WORKING_DIR).with_context(|| "Failed to create working dir")?;
+    ensure_dir_exists(defs::BINARY_DIR).with_context(|| "Failed to create bin dir")?;
+
+    // Open the archive once and reuse it for metadata reads, size calculation, and extraction.
+    let zip_path = PathBuf::from(zip);
+    let zip_path = zip_path.canonicalize()?;
+    let file = File::open(&zip_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    let module_prop = read_module_prop_from_archive(&mut archive)?;
     info!("module prop: {module_prop:?}");
 
     let Some(module_id) = module_prop.get("id") else {
@@ -486,7 +620,7 @@ fn install_module_to_system(zip: &str) -> Result<()> {
         }
     }
 
-    let zip_uncompressed_size = get_zip_uncompressed_size(zip)?;
+    let zip_uncompressed_size = get_zip_uncompressed_size(&mut archive)?;
     info!(
         "zip uncompressed size: {}",
         humansize::format_size(zip_uncompressed_size, humansize::DECIMAL)
@@ -507,8 +641,6 @@ fn install_module_to_system(zip: &str) -> Result<()> {
 
     // Extract zip to target directory
     println!("- Extracting module files");
-    let file = File::open(zip)?;
-    let mut archive = zip::ZipArchive::new(file)?;
     archive.extract(&updated_dir)?;
 
     // Set permission and selinux context for $MOD/system
@@ -521,7 +653,7 @@ fn install_module_to_system(zip: &str) -> Result<()> {
 
     // Execute install script
     println!("- Running module installer");
-    exec_install_script(zip, is_metamodule)?;
+    exec_install_script(zip, is_metamodule, module_id)?;
 
     let module_dir = Path::new(MODULE_DIR).join(module_id);
     ensure_dir_exists(&module_dir)?;
@@ -544,9 +676,13 @@ fn install_module_to_system(zip: &str) -> Result<()> {
 }
 
 pub fn install_module(zip: &str) -> Result<()> {
+    ksucalls::ensure_uapi_version_matched()?;
+
     let result = install_module_to_system(zip);
     if let Err(ref e) = result {
         println!("- Error: {e}");
+    } else if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
     }
     result
 }
@@ -565,6 +701,10 @@ pub fn undo_uninstall_module(id: &str) -> Result<()> {
         info!("Removed the remove mark for module {id}");
     }
 
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+
     Ok(())
 }
 
@@ -580,11 +720,16 @@ pub fn uninstall_module(id: &str) -> Result<()> {
 
     info!("Module {id} marked for removal");
 
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+
     Ok(())
 }
 
 pub fn run_action(id: &str) -> Result<()> {
     validate_module_id(id)?;
+    ksucalls::ensure_uapi_version_matched()?;
 
     let action_script_path = format!("/data/adb/modules/{id}/action.sh");
 
@@ -605,10 +750,16 @@ pub fn enable_module(id: &str) -> Result<()> {
         info!("Module {id} enabled");
     }
 
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+
     Ok(())
 }
 
 pub fn disable_module(id: &str) -> Result<()> {
+    validate_module_id(id)?;
+
     let module_path = Path::new(defs::MODULE_DIR).join(id);
     ensure!(module_path.exists(), "Module {id} not found");
 
@@ -617,16 +768,28 @@ pub fn disable_module(id: &str) -> Result<()> {
 
     info!("Module {id} disabled");
 
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+
     Ok(())
 }
 
 pub fn disable_all_modules() -> Result<()> {
-    mark_all_modules(defs::DISABLE_FILE_NAME)
+    mark_all_modules(defs::DISABLE_FILE_NAME)?;
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+    Ok(())
 }
 
 pub fn uninstall_all_modules() -> Result<()> {
     info!("Uninstalling all modules");
-    mark_all_modules(defs::REMOVE_FILE_NAME)
+    mark_all_modules(defs::REMOVE_FILE_NAME)?;
+    if let Err(e) = regenerate_preinit_rc() {
+        warn!("regenerate preinit rc failed: {e}");
+    }
+    Ok(())
 }
 
 fn mark_all_modules(flag_file: &str) -> Result<()> {

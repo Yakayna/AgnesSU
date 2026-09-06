@@ -1,29 +1,36 @@
 package com.agnessu.yakayn.ui.component.profile
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReadMore
-import androidx.compose.material.icons.automirrored.rounded.Article
+import androidx.compose.material.icons.automirrored.twotone.Article
+import androidx.compose.material.icons.automirrored.twotone.ReadMore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.agnessu.yakayn.Natives
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.compose.viewmodel.koinViewModel
+import com.agnessu.yakayn.domain.model.AppProfile
 import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.settings.SettingsDropdownWidget
-import com.agnessu.yakayn.ui.util.listAppProfileTemplates
-import com.agnessu.yakayn.ui.util.setSepolicy
-import com.agnessu.yakayn.ui.viewmodel.getTemplateInfoById
+import com.agnessu.yakayn.ui.component.NetworkRefreshContent
+import com.agnessu.yakayn.ui.component.settings.SettingsChooseWidget
+import com.agnessu.yakayn.ui.util.ActivityResumeEffect
+import com.agnessu.yakayn.ui.viewmodel.TemplateViewModel
+import com.agnessu.yakayn.ui.viewmodel.TemplateUiAction
+import kotlinx.coroutines.launch
 
 /**
  * @author weishu
@@ -32,27 +39,51 @@ import com.agnessu.yakayn.ui.viewmodel.getTemplateInfoById
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TemplateConfig(
-    profile: Natives.Profile,
+    profile: AppProfile,
     onViewTemplate: (id: String) -> Unit = {},
-    onManageTemplate: () -> Unit = {},
-    onProfileChange: (Natives.Profile) -> Unit
+    onProfileChange: (AppProfile) -> Unit
 ) {
-//    var expanded by remember { mutableStateOf(false) }
-    var template by rememberSaveable {
+    val viewModel = koinViewModel<TemplateViewModel>()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    ActivityResumeEffect(viewModel) {
+        viewModel.dispatch(TemplateUiAction.Refresh())
+    }
+
+    var template by rememberSaveable(profile.rootTemplate) {
         mutableStateOf(profile.rootTemplate ?: "")
     }
-    val profileTemplates = listOf("None") + listAppProfileTemplates()
-//    val noTemplates = profileTemplates.isEmpty()
+    val profileTemplates = listOf("None") + uiState.profileTemplates
+    val profileTemplateNames = listOf("None") + uiState.profileTemplateNames
+    val currentIndex = profileTemplates.indexOf(template).let { if (it == -1) 0 else it }
 
-    SettingsDropdownWidget(
-        icon = Icons.AutoMirrored.Rounded.Article,
+    SettingsChooseWidget(
+        icon = Icons.AutoMirrored.TwoTone.Article,
         title = stringResource(R.string.profile_template),
-        items = profileTemplates,
-        selectedIndex = profileTemplates.indexOf(template) + 1,
+        items = profileTemplateNames,
+        selectedIndex = currentIndex,
+        emptyDialogContent = if (profileTemplates.size == 1) {
+            {
+                NetworkRefreshContent(
+                    offline = uiState.isOffline,
+                    onRetry = {
+                        scope.launch {
+                            viewModel.dispatch(TemplateUiAction.Refresh(synchronize = true))
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp),
+                )
+            }
+        } else {
+            null
+        },
         afterContent = { index ->
-            if (index == 0) return@SettingsDropdownWidget
+            if (index == 0) return@SettingsChooseWidget
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ReadMore,
+                imageVector = Icons.AutoMirrored.TwoTone.ReadMore,
                 contentDescription = null,
                 modifier = Modifier
                     .size(35.dp)
@@ -66,27 +97,26 @@ fun TemplateConfig(
     ) { index ->
         if (index == 0) {
             template = ""
-            return@SettingsDropdownWidget
+            return@SettingsChooseWidget
         }
 
-        template = profileTemplates[index - 1]
+        template = profileTemplates[index]
 
-        val templateInfo =
-            getTemplateInfoById(template) ?: return@SettingsDropdownWidget
+        val templateInfo = uiState.templateList.firstOrNull { it.id == template }
+            ?: return@SettingsChooseWidget
 
-        if (setSepolicy(template, templateInfo.rules.joinToString("\n"))) {
-            onProfileChange(
-                profile.copy(
-                    rootTemplate = template,
-                    rootUseDefault = false,
-                    uid = templateInfo.uid,
-                    gid = templateInfo.gid,
-                    groups = templateInfo.groups,
-                    capabilities = templateInfo.capabilities,
-                    context = templateInfo.context,
-                    namespace = templateInfo.namespace,
-                )
+        onProfileChange(
+            profile.copy(
+                rootTemplate = template,
+                rootUseDefault = false,
+                uid = templateInfo.uid,
+                gid = templateInfo.gid,
+                groups = templateInfo.groups,
+                capabilities = templateInfo.capabilities,
+                context = templateInfo.context,
+                rules = templateInfo.rules.joinToString("\n"),
+                namespace = templateInfo.namespace,
             )
-        }
+        )
     }
 }

@@ -7,6 +7,7 @@ kernelsu-objs += feature/kernel_umount.o
 kernelsu-objs += feature/sulog.o
 kernelsu-objs += feature/adb_root.o
 kernelsu-objs += feature/selinux_hide.o
+kernelsu-objs += feature/module_load_filter.o
 kernelsu-objs += hook/setuid_hook.o
 
 ifndef CONFIG_KSU_DISABLE_MANAGER
@@ -35,17 +36,11 @@ kernelsu-objs += supercall/dispatch.o
 kernelsu-objs += supercall/perm.o
 kernelsu-objs += supercall/supercall.o
 
-ifdef CONFIG_KPM
-kernelsu-objs += kpm/kpm.o
-kernelsu-objs += kpm/compact.o
-kernelsu-objs += kpm/super_access.o
-endif
-
 ifdef CONFIG_ARM64
 kernelsu-objs += compat/apatch_conflict.o
 endif
 
-ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes 
+ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-missing-prototypes
 ccflags-y += $(call cc-disable-warning, int-conversion)
 ccflags-y += -Wno-declaration-after-statement -Wno-unused-function -Wno-unused-variable -Wno-missing-braces
 ccflags-y += -Wno-int-to-pointer-cast -Wno-declaration-after-statement
@@ -103,7 +98,7 @@ ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
 ifdef CONFIG_KSU_MULTI_MANAGER_SUPPORT
-$(info -- Supported Unofficial Manager: AgnesSU, MKSU, RKSU, KOWSU, SukiSU-Ultra )
+$(info -- Supported Unofficial Manager: AgnesSU, MKSU, RKSU, KOWSU, SukiSU-Ultra, ReSukiSU )
 endif
 
 KERNEL_VERSION := $(VERSION).$(PATCHLEVEL)
@@ -137,6 +132,12 @@ kernelsu-objs += infra/symbol_resolver.o
 
 ifeq ($(KERNEL_TYPE), GKI 2.0)
   kernelsu-objs += hook/lsm_hook_magic.o
+endif
+
+ifeq ($(CONFIG_KSU),y)
+  ifneq ($(CONFIG_KALLSYMS_ALL),y)
+    include $(KSU_SRC)/tools/static_export_check.mk
+  endif
 endif
 
 ifdef CONFIG_KSU_TRACEPOINT_HOOK
@@ -191,14 +192,6 @@ else
   ifeq ($(CONFIG_KSU),y)
     $(error Unsupported hook method)
   endif
-endif
-
-# Check if KPM is enabled
-ifdef CONFIG_KPM
-  $(info -- KPM is enabled)
-  $(info -- WARNING, This feature is unstable!!! You are WARNED!!!)
-else
-  $(info -- KPM is disabled)
 endif
 
 ifndef CONFIG_KSU_TRACEPOINT_HOOK

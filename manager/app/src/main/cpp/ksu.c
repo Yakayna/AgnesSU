@@ -71,9 +71,21 @@ static struct ksu_get_info_cmd g_version = {0};
 
 struct ksu_get_info_cmd get_info() {
 	if (!g_version.version) {
-		ksuctl(KSU_IOCTL_GET_INFO, &g_version);
+        if (ksuctl(KSU_IOCTL_GET_INFO, &g_version) < 0) {
+            ksuctl(KSU_IOCTL_GET_INFO_LEGACY, &g_version);
+            g_version.uapi_version = 0;
+        }
 	}
 	return g_version;
+}
+
+uint32_t get_kernel_uapi_version() {
+    struct ksu_get_info_cmd info = get_info();
+    return info.uapi_version;
+}
+
+uint32_t get_manager_uapi_version() {
+    return KERNEL_SU_UAPI_VERSION;
 }
 
 uint32_t get_version() {
@@ -222,6 +234,22 @@ bool is_kernel_umount_enabled() {
     return value != 0;
 }
 
+bool set_webview_zygote_umount_enabled(bool enabled) {
+    return set_feature(KSU_FEATURE_WEBVIEW_ZYGOTE_UMOUNT, enabled ? 1 : 0);
+}
+
+bool is_webview_zygote_umount_enabled() {
+    uint64_t value = 0;
+    bool supported = false;
+    if (!get_feature(KSU_FEATURE_WEBVIEW_ZYGOTE_UMOUNT, &value, &supported)) {
+        return false;
+    }
+    if (!supported) {
+        return false;
+    }
+    return value != 0;
+}
+
 int set_selinux_hide_enabled(bool enabled) {
     if (!set_feature(KSU_FEATURE_SELINUX_HIDE, enabled ? 1 : 0)) {
         return -errno;
@@ -267,13 +295,6 @@ void get_full_version(char* buff) {
 	}
 }
 
-bool is_KPM_enable(void) {
-    struct ksu_enable_kpm_cmd cmd = {};
-    if (ksuctl(KSU_IOCTL_ENABLE_KPM, &cmd) == 0 && cmd.enabled) {
-        return true;
-    }
-    return legacy_is_KPM_enable();
-}
 
 void get_hook_type(char *buff) {
     struct ksu_hook_type_cmd cmd = {0};
@@ -292,16 +313,6 @@ int get_kernel_patch_implement() {
     return cmd.type;
 }
 
-bool set_dynamic_manager(unsigned int size, const char *hash)
-{
-	struct ksu_dynamic_manager_cmd cmd = {0};
-	cmd.operation = DYNAMIC_MANAGER_OP_SET;
-	cmd.size	  = size;
-	strlcpy((char *) cmd.hash, hash, sizeof(cmd.hash));
-
-	return ksuctl(KSU_IOCTL_DYNAMIC_MANAGER, &cmd) == 0;
-}
-
 bool get_dynamic_manager(struct ksu_dynamic_manager_cmd *cfg)
 {
 	if (!cfg) 
@@ -315,13 +326,6 @@ bool get_dynamic_manager(struct ksu_dynamic_manager_cmd *cfg)
 
 	*cfg = cmd;
 	return true;
-}
-
-bool clear_dynamic_manager(void)
-{
-	struct ksu_dynamic_manager_cmd cmd = {0};
-	cmd.operation = DYNAMIC_MANAGER_OP_WIPE;
-	return ksuctl(KSU_IOCTL_DYNAMIC_MANAGER, &cmd) == 0;
 }
 
 /**

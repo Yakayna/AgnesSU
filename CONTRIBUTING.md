@@ -1,18 +1,18 @@
 ## Translations
 
-English and Chinese Simplified are maintained by the developer. If you find inappropriate wording or missing translations, please open an issue or submit a pull request with details.
+English is maintained by the developer. If you find inappropriate wording or missing translations, please open an issue or submit a pull request with details.
 
-For languages other than English and Chinese Simplified, please don't create pull requests for translations; instead, use [Crowdin](https://crowdin.com/project/ReSukiSU).
+For languages other than English and Chinese Simplified, please don't create pull requests for translations; instead, use [Weblate](https://hosted.weblate.org/engage/AgnesSU).
 
 ## Reporting bugs
 
-Before reporting a bug, please first read the [document](https://resukisu.github.io)
+Before reporting a bug, please first read the [document](https://AgnesSU.github.io)
 
 If the issue still exists, please ensure you have tried the **latest CI build**, as the bug may have already been resolved. 
 
 **You can export log from `Settings` page**
 
-When you [Open an issue](https://github.com/ReSukiSU/ReSukiSU/issues), you **must**:
+When you [Open an issue](https://github.com/Yakayna/AgnesSU/issues), you **must**:
 
 - Select right issue template
 - Ensure it doesn't duplicate with current issues.
@@ -23,7 +23,7 @@ When you [Open an issue](https://github.com/ReSukiSU/ReSukiSU/issues), you **mus
 
 ## Suggesting features
 
-[Open an issue](https://github.com/ReSukiSU/ReSukiSU/issues) describing the feature you want and your reason for it.
+[Open an issue](https://github.com/Yakayna/AgnesSU/issues) describing the feature you want and your reason for it.
 
 ## Code
 
@@ -54,7 +54,7 @@ Please note:
 
         Signed-off-by: Fred Jones <fred.jones@foo.org>
 ```
->- then Joe Smith would upload the patch for ReSukiSU as
+>- then Joe Smith would upload the patch for AgnesSU as
 ```
         kernel: patch from upstream (https://github.com/tiann/KernelSU/pull/114514)
 

@@ -1,5 +1,8 @@
 package com.agnessu.yakayn.ui.screen.about
 
+import org.koin.compose.koinInject
+import com.agnessu.yakayn.ui.theme.CardConfig
+import com.agnessu.yakayn.ui.theme.ThemeConfig
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,13 +18,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.Copyright
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material.icons.twotone.Code
+import androidx.compose.material.icons.twotone.Copyright
+import androidx.compose.material.icons.twotone.Group
+import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -53,21 +57,28 @@ import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.ui.component.WarningCard
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
+import com.agnessu.yakayn.ui.component.settings.SegmentedColumn
 import com.agnessu.yakayn.ui.component.settings.SettingsJumpPageWidget
-import com.agnessu.yakayn.ui.component.settings.SplicedColumnGroup
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Navigator
 import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.theme.blurSource
+import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AboutScreen() {
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
     val navigator = LocalNavigator.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+        rememberTopAppBarState(
+            initialHeightOffset = -154f,
+            initialHeightOffsetLimit = -154f // from debugger
+        )
+    )
 
     Scaffold(
         topBar = {
@@ -86,15 +97,15 @@ fun AboutScreen() {
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor =
-                        if (ThemeConfig.isEnableBlur)
+                        if (themeConfig.isEnableBlur)
                             Color.Transparent
                         else
-                            MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
+                            MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
                     scrolledContainerColor =
-                        if (ThemeConfig.isEnableBlur)
+                        if (themeConfig.isEnableBlur)
                             Color.Transparent
                         else
-                            MaterialTheme.colorScheme.surfaceContainer.copy(CardConfig.cardAlpha),
+                            MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
                 ),
             )
         },
@@ -128,15 +139,12 @@ fun AboutScreen() {
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .padding(top = 8.dp, bottom = 12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(
-                        alpha = CardConfig.cardAlpha
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(
+                        alpha = cardConfig.cardAlpha
                     ),
                     message = AnnotatedString.fromHtml(
                         htmlString = stringResource(
-                            id = R.string.about_anime_character_sticker,
-                            "<b>怡子曰曰</b>",
-                            "<b>明风 OuO</b>",
-                            "<b><a href=\"https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt\">CC BY-NC-SA 4.0</a></b>"
+                            id = R.string.about_anime_character_sticker
                         ),
                         linkStyles = TextLinkStyles(
                             style = SpanStyle(
@@ -149,17 +157,24 @@ fun AboutScreen() {
                                 textDecoration = TextDecoration.Underline
                             )
                         )
-                    )
+                    ),
+                    icon = {
+                        Icon(
+                            imageVector = Icons.TwoTone.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 )
             }
 
             item {
-                SplicedColumnGroup(
+                SegmentedColumn(
                     title = stringResource(R.string.about)
                 ) {
                     item {
                         SettingsJumpPageWidget(
-                            icon = Icons.Rounded.Code,
+                            icon = Icons.TwoTone.Code,
                             title = stringResource(R.string.get_source_code),
                             description = stringResource(R.string.get_source_code_detail),
                             onClick = { uriHandler.openUri("https://github.com/Yakayna/AgnesSU") }
@@ -167,7 +182,7 @@ fun AboutScreen() {
                     }
                     item {
                         SettingsJumpPageWidget(
-                            icon = Icons.Rounded.Group,
+                            icon = Icons.TwoTone.Group,
                             title = stringResource(R.string.join_telegram_group),
                             description = stringResource(R.string.join_telegram_group_detail),
                             onClick = { uriHandler.openUri("https://t.me/agnescuteee") }
@@ -175,7 +190,7 @@ fun AboutScreen() {
                     }
                     item {
                         SettingsJumpPageWidget(
-                            icon = Icons.Rounded.Copyright,
+                            icon = Icons.TwoTone.Copyright,
                             title = stringResource(R.string.open_source_license),
                             description = stringResource(R.string.open_source_license_settings_description),
                             onClick = {
@@ -209,13 +224,18 @@ fun AboutScreenPreview() {
 
 @Composable
 private fun StatusCard() {
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
-                alpha = CardConfig.cardAlpha
-            ),
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-        )
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .renderBackgroundBlur(),
+        color =
+            if (themeConfig.isEnableBlurExp)
+                Color.Transparent
+            else
+                MaterialTheme.colorScheme.primaryContainer.copy(cardConfig.cardAlpha),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier
