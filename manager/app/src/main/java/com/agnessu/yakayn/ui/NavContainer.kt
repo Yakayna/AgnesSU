@@ -79,6 +79,7 @@ import com.agnessu.yakayn.ui.overscroll.rememberCustomOverscrollFactory
 import com.agnessu.yakayn.ui.screen.AppProfileScreen
 import com.agnessu.yakayn.ui.screen.AppProfileTemplateScreen
 import com.agnessu.yakayn.ui.screen.DynamicManagerScreen
+import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
 import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
@@ -493,6 +494,7 @@ fun NavContainer(
                     entry<Route.SuSFSConfig> { SuSFSConfigScreen() }
                     entry<Route.UmountManager> { UmountManagerScreen() }
                     entry<Route.DynamicManager> { DynamicManagerScreen() }
+                    entry<Route.InstallLibtgpa> { InstallLibtgpaScreen() }
                     entry<Route.KernelFlash> { key ->
                         KernelFlashScreen(
                             key.kernelUri,

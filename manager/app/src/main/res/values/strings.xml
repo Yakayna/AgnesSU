@@ -544,4 +544,26 @@
     <string name="manager_update_details">Version: %1$s (%2$d)\nArchitecture: %3$s</string>
     <string name="settings_check_beta_update">Check beta updates</string>
     <string name="settings_check_beta_update_summary">Auto-check beta builds from the main branch</string>
+    <string name="special_category">Special</string>
+    <string name="install_libtgpa_title">Install libtgpa.so into AOV</string>
+    <string name="install_libtgpa_summary">Replace libtgpa.so in Arena of Valor (com.garena.game.kgvn) using root</string>
+    <string name="libtgpa_screen_desc">Pick a libtgpa.so file, then AgnesSU replaces the one inside Arena of Valor (arm64) using root and keeps 755 permissions.</string>
+    <string name="libtgpa_pick_file">Choose libtgpa.so</string>
+    <string name="libtgpa_selected_file">Selected: %1$s</string>
+    <string name="libtgpa_no_file">No file selected yet</string>
+    <string name="libtgpa_start">Start</string>
+    <string name="libtgpa_reinstall_dialog_title">Reinstall the game?</string>
+    <string name="libtgpa_reinstall_dialog_msg">Have you already reinstalled Arena of Valor?
+
+If not, AgnesSU can reinstall it now with root before replacing the library.</string>
+    <string name="libtgpa_reinstall_yes">Already reinstalled</string>
+    <string name="libtgpa_reinstall_no">Reinstall for me</string>
+    <string name="libtgpa_cancel">Cancel</string>
+    <string name="libtgpa_game_not_installed">Arena of Valor (com.garena.game.kgvn) is not installed</string>
+    <string name="libtgpa_reinstalling">Reinstalling the game with root...</string>
+    <string name="libtgpa_patching">Replacing libtgpa.so...</string>
+    <string name="libtgpa_success">Done! libtgpa.so was replaced successfully.</string>
+    <string name="libtgpa_failed">Failed: %1$s</string>
+    <string name="libtgpa_libdir_missing">Native library folder not found for arm64 (the game may keep libs inside the APK).</string>
+    <string name="libtgpa_copy_failed">Could not read the selected libtgpa.so file</string>
 </resources>

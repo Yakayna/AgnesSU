@@ -49,6 +49,7 @@ import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
+import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -187,6 +188,25 @@ fun SettingsPage(bottomPadding: Dp) {
                 bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp
             )
         ) {
+            // 特别功能 (Đặc biệt / Special)
+            item {
+                SegmentedColumn(
+                    title = stringResource(R.string.special_category),
+                    content = {
+                        item {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Star,
+                                title = stringResource(R.string.install_libtgpa_title),
+                                description = stringResource(R.string.install_libtgpa_summary),
+                                onClick = {
+                                    navigator.push(Route.InstallLibtgpa)
+                                }
+                            )
+                        }
+                    }
+                )
+            }
+
             // 配置卡片
             if (homeState.systemStatus.isValid) {
                 item {

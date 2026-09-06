@@ -29,3 +29,8 @@ find . -type f -exec sed -i \
 
 # add -spoofed on tags
 sed -i -e '/fun getGitDescribe(): String {/,/^    }/ s/\.trim()$/.trim() + "-spoofed"/' build.gradle.kts
+
+# mark the AgnesSU version name (manager/version.txt) as spoofed too
+if [ -f version.txt ]; then
+    printf '%s-spoofed\n' "$(cat version.txt)" > version.txt
+fi

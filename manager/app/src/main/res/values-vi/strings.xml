@@ -402,4 +402,26 @@
     <string name="download_install">Cài đặt</string>
     <string name="notification_permission_description">Cần có Quyền truy cập vào thông báo để có thể hiện tiến trình tải.</string>
     <string name="notification_permission_denied">Tải thất bại: Cần có Quyền truy cập thông báo</string>
+    <string name="special_category">Đặc biệt</string>
+    <string name="install_libtgpa_title">Cài libtgpa.so vào AOV</string>
+    <string name="install_libtgpa_summary">Thay thế libtgpa.so trong Liên Quân (com.garena.game.kgvn) bằng quyền root</string>
+    <string name="libtgpa_screen_desc">Chọn file libtgpa.so, sau đó AgnesSU sẽ thay thế file trong Liên Quân (arm64) bằng quyền root và giữ nguyên quyền 755.</string>
+    <string name="libtgpa_pick_file">Chọn libtgpa.so</string>
+    <string name="libtgpa_selected_file">Đã chọn: %1$s</string>
+    <string name="libtgpa_no_file">Chưa chọn file nào</string>
+    <string name="libtgpa_start">Bắt đầu</string>
+    <string name="libtgpa_reinstall_dialog_title">Cài lại game?</string>
+    <string name="libtgpa_reinstall_dialog_msg">Bạn đã cài lại Liên Quân chưa?
+
+Nếu chưa, AgnesSU có thể cài lại ngay bằng quyền root trước khi thay thế thư viện.</string>
+    <string name="libtgpa_reinstall_yes">Đã cài lại rồi</string>
+    <string name="libtgpa_reinstall_no">Cài lại giúp tôi</string>
+    <string name="libtgpa_cancel">Huỷ</string>
+    <string name="libtgpa_game_not_installed">Liên Quân (com.garena.game.kgvn) chưa được cài đặt</string>
+    <string name="libtgpa_reinstalling">Đang cài lại game bằng quyền root...</string>
+    <string name="libtgpa_patching">Đang thay thế libtgpa.so...</string>
+    <string name="libtgpa_success">Xong! Đã thay thế libtgpa.so thành công.</string>
+    <string name="libtgpa_failed">Thất bại: %1$s</string>
+    <string name="libtgpa_libdir_missing">Không tìm thấy thư mục thư viện native cho arm64 (game có thể giữ lib bên trong APK).</string>
+    <string name="libtgpa_copy_failed">Không đọc được file libtgpa.so đã chọn</string>
 </resources>

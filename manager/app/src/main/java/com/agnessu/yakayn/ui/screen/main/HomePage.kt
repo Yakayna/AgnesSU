@@ -255,24 +255,6 @@ fun HomePage(
                         Spacer(modifier = Modifier.height(10.dp))
                     }
 
-                    if (!uiState.systemStatus.isOfficialSignature) {
-                        WarningCard(
-                            message = stringResource(
-                                R.string.unofficial_version_notice,
-                                stringResource(R.string.app_name)
-                            ),
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.TwoTone.Error,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-
                     if (BuildConfig.IS_PR_BUILD || uiState.systemStatus.isPrBuild) {
                         WarningCard(
                             message = stringResource(
