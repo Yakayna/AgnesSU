@@ -344,3 +344,32 @@ jobs:
         with:
           name: ${{ steps.determine.outputs.title }}-${{ matrix.build_type }}
           path: dist/*.apk
+
+  telegram-upload:
+    needs: [repack-manager]
+    if: always() && github.event_name == 'push' && github.ref_name == 'main' && needs.repack-manager.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Manager release APK
+        uses: actions/download-artifact@v8
+        with:
+          name: Manager-release
+          path: manager
+
+      - name: Upload to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not configured; skipping upload."
+            exit 0
+          fi
+          for apk in manager/*.apk; do
+            [ -f "$apk" ] || continue
+            echo "Uploading ${apk} to Telegram"
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "document=@${apk}" \
+              -F "caption=${GITHUB_REPOSITORY} @ ${GITHUB_SHA}"
+          done
