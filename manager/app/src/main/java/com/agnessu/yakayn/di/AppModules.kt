@@ -5,6 +5,7 @@ import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.data.AppSettingsRepository
 import com.agnessu.yakayn.data.application.ApplicationControlRepository
 import com.agnessu.yakayn.data.application.DynamicManagerRepository
+import com.agnessu.yakayn.data.count.CountRepository
 import com.agnessu.yakayn.data.download.DownloadRepository
 import com.agnessu.yakayn.data.file.ModuleFileRepository
 import com.agnessu.yakayn.data.flash.FlashRepository
@@ -71,8 +72,6 @@ import com.agnessu.yakayn.domain.usecase.GetBooleanPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.GetCatalogModuleUseCase
 import com.agnessu.yakayn.domain.usecase.GetDefaultUmountModulesUseCase
 import com.agnessu.yakayn.domain.usecase.GetHomeBasicInfoUseCase
-import com.agnessu.yakayn.domain.usecase.GetHomeModuleOverviewUseCase
-import com.agnessu.yakayn.domain.usecase.GetHomeSuperuserCountUseCase
 import com.agnessu.yakayn.domain.usecase.GetInstallEnvironmentUseCase
 import com.agnessu.yakayn.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.agnessu.yakayn.domain.usecase.GetKernelStatusUseCase
@@ -89,6 +88,7 @@ import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
 import com.agnessu.yakayn.domain.usecase.IsLateLoadModeUseCase
 import com.agnessu.yakayn.domain.usecase.IsModuleUriAccessibleUseCase
 import com.agnessu.yakayn.domain.usecase.IsNetworkAvailableUseCase
+import com.agnessu.yakayn.domain.usecase.IsSoftRebootPreferredUseCase
 import com.agnessu.yakayn.domain.usecase.IsSystemLanguageSettingsUseCase
 import com.agnessu.yakayn.domain.usecase.LaunchSystemLanguageSettingsUseCase
 import com.agnessu.yakayn.domain.usecase.LoadSettingsPlatformUseCase
@@ -131,7 +131,6 @@ import com.agnessu.yakayn.domain.usecase.SetSelinuxHideEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringSetPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.SetSuEnabledUseCase
-import com.agnessu.yakayn.domain.usecase.SetWebViewZygoteUmountEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.StartKernelFlashUseCase
 import com.agnessu.yakayn.domain.usecase.SuSFSConfigUseCase
 import com.agnessu.yakayn.domain.usecase.TakeModuleUriPermissionUseCase
@@ -220,6 +219,7 @@ val coreModule = module {
 
 val repositoryModule = module {
     single { KsuCliRepository(androidApplication()) }
+    singleOf(::CountRepository)
     singleOf(::InstalledPackageCache)
     singleOf(::AppIconDataSource)
     singleOf(::RootServiceRepository)
@@ -296,13 +296,12 @@ val repositoryModule = module {
 val useCaseModule = module {
     factoryOf(::InitializeApplicationUseCase)
     factoryOf(::GetHomeBasicInfoUseCase)
-    factoryOf(::GetHomeModuleOverviewUseCase)
-    factoryOf(::GetHomeSuperuserCountUseCase)
     factoryOf(::IsNetworkAvailableUseCase)
     factoryOf(::LoadSettingsPlatformUseCase)
     factoryOf(::UpdateAppearanceUseCase)
     factoryOf(::UpdatePlatformSettingUseCase)
     factoryOf(::GetPlatformFeatureStatusUseCase)
+    factoryOf(::IsSoftRebootPreferredUseCase)
     factoryOf(::CheckManagerUpdateUseCase)
     factoryOf(::EnsureManagerInstalledUseCase)
     factoryOf(::RebootUseCase)
@@ -320,7 +319,6 @@ val useCaseModule = module {
     factoryOf(::ConfigureSuLogUseCase)
     factoryOf(::SetSelinuxHideEnabledUseCase)
     factoryOf(::SetDefaultUmountModulesUseCase)
-    factoryOf(::SetWebViewZygoteUmountEnabledUseCase)
     factoryOf(::IsLateLoadModeUseCase)
     factoryOf(::GetAppProfileUseCase)
     factoryOf(::SetAppProfileUseCase)

@@ -1,6 +1,7 @@
 #ifndef __KSU_H_KSU
 #define __KSU_H_KSU
 
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/cred.h>
 #include <linux/workqueue.h>
@@ -11,6 +12,9 @@
 extern struct cred *ksu_cred;
 extern bool ksu_late_loaded;
 extern bool allow_shell;
+#ifdef MODULE
+extern bool ksu_bundled;
+#endif
 extern bool ksu_no_custom_rc;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) || defined(KSU_COMPAT_HAS_SELINUX_POLICY_STRUCT)

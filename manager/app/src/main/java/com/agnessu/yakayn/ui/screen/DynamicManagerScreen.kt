@@ -63,6 +63,7 @@ import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.ActivityResumeEffect
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.DynamicManagerAppItem
 import com.agnessu.yakayn.ui.viewmodel.DynamicManagerOperation
@@ -151,6 +152,7 @@ fun DynamicManagerScreen() {
     }
 
     Scaffold(
+        contentWindowInsets = adaptiveScaffoldWindowInsets(),
         topBar = {
             SearchAppBar(
                 title = stringResource(R.string.dynamic_manager_title),

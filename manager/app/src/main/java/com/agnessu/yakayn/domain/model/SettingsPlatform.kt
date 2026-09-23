@@ -23,6 +23,7 @@ data class SettingsPlatformSnapshot(
     val checkModuleUpdate: Boolean = true,
     val autoJailbreakEnabled: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
+    val useSoftReboot: Boolean = false,
 )
 
 data class PlatformFeatureStatus(
@@ -33,7 +34,6 @@ data class PlatformFeatureStatus(
     val adbRootEnabled: Boolean = false,
     val sulogStatus: String = "",
     val selinuxHideStatus: String = "",
-    val webViewZygoteUmountStatus: String = "",
 )
 
 sealed interface AppearanceSetting {
@@ -80,4 +80,5 @@ sealed interface PlatformSetting {
     data class AdbRoot(val enabled: Boolean) : PlatformSetting
     data class SuCompatMode(val value: Int) : PlatformSetting
     data class BuiltinMonospaceFont(val enabled: Boolean) : PlatformSetting
+    data class UseSoftReboot(val enabled: Boolean) : PlatformSetting
 }

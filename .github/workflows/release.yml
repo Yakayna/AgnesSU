@@ -38,3 +38,21 @@ jobs:
           prerelease: ${{ steps.is_rc_tag.outputs.IS_RC_TAG == 'true' }}
           files: |
             manager/*.apk
+
+      - name: Upload to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "Telegram secrets not configured; skipping upload."
+            exit 0
+          fi
+          for apk in manager/*.apk; do
+            [ -f "$apk" ] || continue
+            echo "Uploading ${apk} to Telegram"
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "document=@${apk}" \
+              -F "caption=${GITHUB_REPOSITORY} ${GITHUB_REF_NAME}"
+          done

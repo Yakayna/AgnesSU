@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools"
-    tools:ignore="MissingTranslation">
-    <string name="app_name" translatable="false">AgnesSU</string>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="home">Home</string>
     <string name="learn_more">Learn more</string>
     <string name="home_not_installed">Not installed</string>
@@ -86,6 +84,8 @@
     <string name="jailbreak_flash_warning_countdown">Continue (%1$d)</string>
     <string name="settings_auto_jailbreak">Auto jailbreak</string>
     <string name="settings_auto_jailbreak_summary">Automatically use Magica to escalate privileges when Permissive SELinux is detected at boot. Requires granting autostart permission to this app.</string>
+    <string name="settings_soft_reboot">Soft restart instead of reboot</string>
+    <string name="settings_soft_reboot_summary">Use soft restart instead of a full reboot when installing, updating, or toggling modules.</string>
     <string name="settings_adb_root" translatable="false">ADB Root</string>
     <string name="settings_adb_root_summary">Run adbd daemon with root privileges</string>
     <string name="settings_selinux_hide">Hide SELinux modification</string>
@@ -174,6 +174,13 @@
     <string name="install_only_support_ko_file">Only .ko files are supported</string>
     <string name="select_file_tip">%1$s partition image is recommended</string>
     <string name="select_kmi">Select KMI</string>
+    <string name="advanced_options">Advanced Options</string>
+    <string name="allow_shell">Always grant Root to Shell</string>
+    <string name="allow_shell_summary">Always allow adb shell to call SU command. Do not enable this unless absolutely necessary.</string>
+    <string name="enable_adb">Force enable adb on boot</string>
+    <string name="enable_adb_summary">Force enable USB debugging and disable adb authentication. Do not enable this unless absolutely necessary.</string>
+    <string name="install_force_backup">Backup as stock image</string>
+    <string name="install_force_backup_summary">Please make sure your selected boot image is a stock image</string>
     <string name="settings_uninstall">Uninstall</string>
     <string name="settings_uninstall_temporary">Uninstall temporarily</string>
     <string name="settings_uninstall_permanent">Uninstall permanently</string>
@@ -184,7 +191,6 @@
     <string name="flashing">Flashing</string>
     <string name="flash_success">Flash success</string>
     <string name="flash_failed">Flash failed</string>
-    <string name="selected_lkm">Selected LKM: %s</string>
     <string name="save_log">Save logs</string>
     <string name="log_saved">Logs saved</string>
     <string name="unknown_module">Unknown module</string>
@@ -226,8 +232,6 @@
     <string name="settings_sucompat_summary">Allow root access via /system/bin/su, in new processes.</string>
     <string name="settings_kernel_umount">Module unmounting</string>
     <string name="settings_kernel_umount_summary">Unmount modules from kernel in App Profile</string>
-    <string name="settings_webview_zygote_umount">Unmount for WebView</string>
-    <string name="settings_webview_zygote_umount_summary">Prevent information leaks from WebView process but may break modules. Reboot to apply</string>
     <string name="feature_status_unsupported_summary">Kernel does not support this feature</string>
     <string name="settings_mode_disable_until_reboot">Disable until Reboot</string>
     <string name="settings_mode_disable_always">Always disable</string>
@@ -240,6 +244,10 @@
     <string name="settings_custom_monospace_font_summary">Use built-in JetBrains Mono font for log display to avoid system monospace issues</string>
     <string name="simple_mode">Simplicity mode</string>
     <string name="simple_mode_summary">Hides unnecessary cards when turned on</string>
+    <string name="navigation_bar_badge">Navigation bar badges</string>
+    <string name="navigation_bar_badge_summary">Show superuser / module counts in the navigation bar</string>
+    <string name="home_card_icons">Show icons on home cards</string>
+    <string name="home_card_icons_summary">Add icons to the home information cards</string>
     <string name="theme_mode">Theme</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>
@@ -317,13 +325,12 @@
     <string name="kernel_flashing">Kernel Flashing</string>
     <string name="warning_of_meta_module_title">Require Meta module</string>
     <string name="warning_of_meta_module_summary">This module wants to mount /system, which is handled by the meta module. Without it, the module might not work</string>
-    <string name="sort_name_asc">Ascending order of name</string>
-    <string name="sort_name_desc">Name descending</string>
-    <string name="sort_install_time_new">Installation time (New)</string>
-    <string name="sort_install_time_old">Installation time (Old)</string>
-    <string name="sort_size_desc">Descending order of size</string>
-    <string name="sort_size_asc">Ascending order of size</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_install_time">Install time</string>
+    <string name="sort_update_time">Update time</string>
+    <string name="sort_size">Size</string>
     <string name="sort_usage_freq">Frequency of use</string>
+    <string name="reverse_order">Reverse order</string>
     <string name="no_apps_in_category">No application in this category</string>
     <string name="persistent">Persistent</string>
     <string name="temporary">Temporary</string>
@@ -381,8 +388,9 @@
     <string name="sus_maps_description_text">Hide the real file paths of memory mappings from /proc/self/[maps|smaps|smaps_rollup|map_files|mem|pagemap]. Please note: This feature does not support hiding anonymous memory mappings, nor can it hide inline hooks or PLT hooks caused by the injected library itself</string>
     <string name="sus_maps_warning">Important Notice: For applications with well-implemented injection detection mechanisms, this feature may not effectively bypass detection</string>
     <string name="sus_maps_debug_info">First, find the target application\'s PID and UID using ps -enf, then check the relevant paths in /proc/&lt;pid&gt;/maps and compare the device numbers with those in /proc/1/mountinfo to ensure consistency. Only when the device numbers match can the map hiding function work properly</string>
-    <string name="require_manager_version">The current KernelSU manager version %1$d is too low for KernelSU to work properly. Please upgrade manager to version %2$d or higher!</string>
-    <string name="require_kernel_version">The current KernelSU version %1$d is too low for the manager to work properly. Please upgrade to version %2$d or higher!</string>
+    <string name="require_manager_version">Manager update required</string>
+    <string name="require_kernel_version">Kernel update required. Tap to install.</string>
+    <string name="require_kernel_version_gki">Kernel update required</string>
     <string name="umount_path_manager">Umount Path Management</string>
     <string name="umount_path_manager_summary">Manage kernel unmount paths</string>
     <string name="no_any_umount_path">No existing umount paths</string>
@@ -566,4 +574,10 @@ If not, AgnesSU can reinstall it now with root before replacing the library.</st
     <string name="libtgpa_failed">Failed: %1$s</string>
     <string name="libtgpa_libdir_missing">Native library folder not found for arm64 (the game may keep libs inside the APK).</string>
     <string name="libtgpa_copy_failed">Could not read the selected libtgpa.so file</string>
+    <string name="enable_floating_bottom_bar">Floating bottom bar</string>
+    <string name="enable_floating_bottom_bar_summary">Use Apple style floating bottom bar.</string>
+    <string name="ak3_select_zip">Select an AnyKernel3 zip file to flash</string>
+    <string name="install_upload_lkm_file_summary">Use a custom .ko file instead of the built-in LKM</string>
+    <string name="skip_ksud">Do not install ksud</string>
+    <string name="skip_ksud_summary">Cancel ksud installation. Do not enable this unless absolutely necessary.</string>
 </resources>

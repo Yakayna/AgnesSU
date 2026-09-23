@@ -69,7 +69,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -97,6 +96,7 @@ import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.FlashUiAction
 import com.agnessu.yakayn.ui.viewmodel.FlashViewModel
@@ -441,6 +441,7 @@ fun FlashScreen(flashIt: FlashIt) {
     }
 
     Scaffold(
+        contentWindowInsets = adaptiveScaffoldWindowInsets(),
         topBar = {
             TopBar(
                 flashUiState.flashingStatus,
@@ -465,7 +466,11 @@ fun FlashScreen(flashIt: FlashIt) {
             if (showFloatAction) {
                 ExtendedFloatingActionButton(
                     onClick = {
-                        flashViewModel.dispatch(FlashUiAction.Reboot)
+                        flashViewModel.dispatch(
+                            FlashUiAction.Reboot(
+                                allowSoftReboot = flashIt is FlashIt.FlashModule || flashIt is FlashIt.FlashModules || flashIt is FlashIt.FlashModuleUpdate
+                            )
+                        )
                     },
                     icon = {
                         Icon(
@@ -803,6 +808,9 @@ sealed class FlashIt : Parcelable {
         val kmi: String? = null,
         val ota: Boolean,
         val partition: String? = null,
+        val allowShell: Boolean = false,
+        val enableAdb: Boolean = false,
+        val forceBackup: Boolean = false,
     ) : FlashIt()
 
     data class FlashModule(val uri: String) : FlashIt()
@@ -846,6 +854,9 @@ private suspend fun flashIt(
             },
             ota = flashIt.ota,
             partition = flashIt.partition,
+            allowShell = flashIt.allowShell,
+            enableAdb = flashIt.enableAdb,
+            forceBackup = flashIt.forceBackup,
         )
 
         is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri)

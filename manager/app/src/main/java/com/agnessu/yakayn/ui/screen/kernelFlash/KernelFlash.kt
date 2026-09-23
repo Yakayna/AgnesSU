@@ -10,14 +10,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -64,6 +60,7 @@ import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.MonospaceFontFamily
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.KernelFlashUiAction
 import com.agnessu.yakayn.ui.viewmodel.KernelFlashUiEvent
@@ -91,7 +88,8 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun KernelFlashScreen(
     kernelUri: String,
-    selectedSlot: String? = null
+    selectedSlot: String? = null,
+    skipKsud: Boolean = false
 ) {
     val context = LocalContext.current
 
@@ -121,8 +119,8 @@ fun KernelFlashScreen(
     }
 
     // 开始刷写
-    LaunchedEffect(kernelUri, selectedSlot) {
-        viewModel.dispatch(KernelFlashUiAction.Start(kernelUri, selectedSlot))
+    LaunchedEffect(kernelUri, selectedSlot, skipKsud) {
+        viewModel.dispatch(KernelFlashUiAction.Start(kernelUri, selectedSlot, skipKsud))
     }
 
     LaunchedEffect(flashState.isCompleted, uiState.autoExit) {
@@ -189,7 +187,7 @@ fun KernelFlashScreen(
             }
         },
         snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) },
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        contentWindowInsets = adaptiveScaffoldWindowInsets(),
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         KeyEventBlocker {
@@ -400,7 +398,7 @@ private fun TopBar(
                 )
             }
         },
-        windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        windowInsets = adaptiveScaffoldWindowInsets(includeBottom = false),
         scrollBehavior = scrollBehavior
     )
 }

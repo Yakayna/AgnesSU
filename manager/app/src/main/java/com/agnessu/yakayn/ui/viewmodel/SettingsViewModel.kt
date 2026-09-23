@@ -17,7 +17,6 @@ import com.agnessu.yakayn.domain.usecase.SetDefaultUmountModulesUseCase
 import com.agnessu.yakayn.domain.usecase.SetKernelUmountEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetSelinuxHideEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetSuEnabledUseCase
-import com.agnessu.yakayn.domain.usecase.SetWebViewZygoteUmountEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.UpdateAppearanceUseCase
 import com.agnessu.yakayn.domain.usecase.UpdatePlatformSettingUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -97,10 +96,9 @@ data class SettingsUiState(
     val isSuLogEnabled: Boolean = false,
     val selinuxHideStatus: String = "",
     val isSelinuxHideEnabled: Boolean = false,
-    val webViewZygoteUmountStatus: String = "",
-    val isWebViewZygoteUmountEnabled: Boolean = false,
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
+    val useSoftReboot: Boolean = false,
 )
 
 sealed interface SettingsUiAction {
@@ -139,7 +137,7 @@ sealed interface SettingsUiAction {
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
-    data class SetWebViewZygoteUmountEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetUseSoftReboot(val enabled: Boolean) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -159,7 +157,6 @@ class SettingsViewModel(
     private val setSuLogEnabled: ConfigureSuLogUseCase,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
-    private val setWebViewZygoteUmountEnabled: SetWebViewZygoteUmountEnabledUseCase,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -199,8 +196,6 @@ fun initialize() {
                     isSuLogEnabled = features.suLogEnabled,
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
-                    webViewZygoteUmountStatus = platform.webViewZygoteUmountStatus,
-                    isWebViewZygoteUmountEnabled = features.webViewZygoteUmountEnabled,
                     defaultUmountModules = features.defaultUmountModules,
                 )
             }
@@ -408,14 +403,10 @@ fun initialize() {
         }
     }
 
-    fun handleWebViewZygoteUmountChange(checked: Boolean) {
-        viewModelScope.launch {
-            if (setWebViewZygoteUmountEnabled(checked)) {
-                mutableState.update { it.copy( isWebViewZygoteUmountEnabled = checked) }
-            }
-        }
+    fun handleUseSoftRebootChange(enabled: Boolean) {
+        mutableState.update { it.copy(useSoftReboot = enabled) }
+        updatePlatformAsync(PlatformSetting.UseSoftReboot(enabled))
     }
-
 
 fun dispatch(action: SettingsUiAction) {
         when (action) {
@@ -458,7 +449,9 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)
-            is SettingsUiAction.SetWebViewZygoteUmountEnabled -> handleWebViewZygoteUmountChange(action.enabled)
+
+            is SettingsUiAction.SetUseSoftReboot ->
+                handleUseSoftRebootChange(action.enabled)
         }
     }
 
@@ -510,6 +503,7 @@ fun dispatch(action: SettingsUiAction) {
                 checkModuleUpdate = snapshot.checkModuleUpdate,
                 autoJailbreakEnabled = snapshot.autoJailbreakEnabled,
                 useBuiltinMonoFont = snapshot.useBuiltinMonoFont,
+                useSoftReboot = snapshot.useSoftReboot,
             )
         }
     }

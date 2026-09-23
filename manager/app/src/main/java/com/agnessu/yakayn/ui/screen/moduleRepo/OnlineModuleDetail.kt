@@ -19,14 +19,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -104,6 +101,7 @@ import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
 import com.agnessu.yakayn.ui.util.LocalPermissionRequestInterface
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.viewmodel.ModuleDetailUiAction
 import com.agnessu.yakayn.ui.viewmodel.ModuleDetailViewModel
 import com.agnessu.yakayn.ui.viewmodel.formatFileSize
@@ -238,9 +236,7 @@ private fun OnlineModuleDetailContent(module: CatalogModule) {
         },
         containerColor = Color.Transparent,
         contentColor =  MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = WindowInsets.safeDrawing.only(
-            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-        ),
+        contentWindowInsets = adaptiveScaffoldWindowInsets(),
         snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) }
     ) { innerPadding ->
         Column(

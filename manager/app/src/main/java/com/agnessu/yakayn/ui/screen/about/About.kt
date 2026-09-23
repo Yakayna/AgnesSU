@@ -1,8 +1,5 @@
 package com.agnessu.yakayn.ui.screen.about
 
-import org.koin.compose.koinInject
-import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.ThemeConfig
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -62,9 +59,13 @@ import com.agnessu.yakayn.ui.component.settings.SettingsJumpPageWidget
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Navigator
 import com.agnessu.yakayn.ui.navigation.Route
+import com.agnessu.yakayn.ui.theme.CardConfig
+import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
+import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
+import org.koin.compose.koinInject
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -81,6 +82,7 @@ fun AboutScreen() {
     )
 
     Scaffold(
+        contentWindowInsets = adaptiveScaffoldWindowInsets(),
         topBar = {
             LargeFlexibleTopAppBar(
                 modifier = Modifier.blurEffect(

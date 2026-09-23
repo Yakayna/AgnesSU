@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.materialkolor.PaletteStyle
+import com.materialkolor.dynamiccolor.ColorSpec
+import com.agnessu.yakayn.Natives
 import com.agnessu.yakayn.data.AppSettingsRepository
 import com.agnessu.yakayn.data.shell.KsuCliRepository
 import com.agnessu.yakayn.data.theme.ThemeRepository
@@ -80,6 +83,7 @@ class SettingsPlatformRepository(
             checkModuleUpdate = loadModuleUpdatePreference(),
             autoJailbreakEnabled = settings.getBoolean("auto_jailbreak", false),
             useBuiltinMonoFont = themeConfig.useBuiltinMonoFont,
+            useSoftReboot = settings.getBoolean("use_soft_reboot", false),
         )
     }
 
@@ -186,6 +190,9 @@ class SettingsPlatformRepository(
                 settings.putBoolean("use_builtin_monospace_font", setting.enabled)
                 themeConfig.useBuiltinMonoFont = setting.enabled
             }
+
+            is PlatformSetting.UseSoftReboot ->
+                settings.putBoolean("use_soft_reboot", setting.enabled)
         }
         Result.success(load())
     } catch (error: CancellationException) {
@@ -193,6 +200,10 @@ class SettingsPlatformRepository(
     } catch (error: Exception) {
         Result.failure(error)
     }
+
+    fun isSoftRebootPreferred(): Boolean =
+        Natives.isFullFeatured() &&
+            (Natives.isLateLoadMode || settings.getBoolean("use_soft_reboot", false))
 
     suspend fun getFeatureStatus(): PlatformFeatureStatus = withContext(Dispatchers.IO) {
         PlatformFeatureStatus(
@@ -216,9 +227,6 @@ class SettingsPlatformRepository(
             }.getOrDefault(""),
             selinuxHideStatus = runCatching {
                 ksuCliRepository.getFeatureStatus("selinux_hide")
-            }.getOrDefault(""),
-            webViewZygoteUmountStatus = runCatching {
-                ksuCliRepository.getFeatureStatus("webview_zygote_umount")
             }.getOrDefault(""),
         )
     }
@@ -258,7 +266,6 @@ class SettingsPlatformRepository(
         cardConfig.save()
         themeConfig.preventBackgroundRefresh = false
         backgroundManager.saveBackgroundDim(0f)
-        backgroundManager.saveEnableBlur(false)
         backgroundManager.saveEnableBlurExp(false)
         backgroundManager.saveUseBackgroundSeedColor(false)
         backgroundManager.saveEnableHighContrastMode(false)
@@ -292,8 +299,8 @@ class SettingsPlatformRepository(
 
     private fun toggleLauncherIcon(useAlt: Boolean) {
         val packageName = application.packageName
-        val main = ComponentName(packageName, "$packageName.ui.MainActivity")
-        val alias = ComponentName(packageName, "$packageName.ui.MainActivityAlias")
+        val main = ComponentName(packageName, "com.agnessu.yakayn.ui.MainActivity")
+        val alias = ComponentName(packageName, "com.agnessu.yakayn.ui.MainActivityAlias")
         application.packageManager.setComponentEnabledSetting(
             if (useAlt) alias else main,
             PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
