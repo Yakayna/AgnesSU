@@ -1,5 +1,6 @@
 package com.agnessu.yakayn.ui.screen.main
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,12 +35,18 @@ import com.agnessu.yakayn.data.ghostlock.GhostlockRepository
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
+/** What the "Start" button is queued to run once the user agrees. */
+private enum class PendingMode { None, Online, CustomPayload }
+
 /**
  * Self-contained GhostLock entry point. Tapping it opens a menu with:
  *  - "Check online": verifies the running kernel against the online list (the
  *    device is deliberately NOT checked — only the kernel) and, on a match,
- *    runs the bundled payload straight away.
+ *    reveals a "Start" button.
  *  - "Use custom payload.so": runs a user-picked payload.so, no kernel check.
+ *
+ * Pressing "Start" shows a warning; only after the user agrees does the payload
+ * actually execute, streaming its log to a dialog.
  */
 @Composable
 fun GhostlockButton(
@@ -50,69 +57,90 @@ fun GhostlockButton(
     val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
-    var running by remember { mutableStateOf(false) }
+    var showConsent by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var pendingMode by remember { mutableStateOf(PendingMode.None) }
+    var customUri by remember { mutableStateOf<Uri?>(null) }
     val logLines = remember { mutableStateListOf<String>() }
 
     val pickPayloadLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
-            showMenu = false
-            showLog = true
-            running = true
-            logLines.clear()
-            scope.launch {
-                val result = repository.runCustomPayload(uri) { line -> logLines.add(line) }
-                Toast.makeText(
-                    context,
-                    result.fold(
-                        onSuccess = { R.string.ghostlock_success },
-                        onFailure = { R.string.ghostlock_failed },
-                    ),
-                    Toast.LENGTH_LONG,
-                ).show()
-                running = false
+            customUri = uri
+            pendingMode = PendingMode.CustomPayload
+        }
+    }
+
+    fun startRun() {
+        val mode = pendingMode
+        showConsent = false
+        showMenu = false
+        showLog = true
+        busy = true
+        logLines.clear()
+        scope.launch {
+            val result = when (mode) {
+                PendingMode.Online ->
+                    repository.runExploit(repository.kernelRelease) { line -> logLines.add(line) }
+
+                PendingMode.CustomPayload ->
+                    customUri?.let { repository.runCustomPayload(it) { line -> logLines.add(line) } }
+                        ?: Result.failure(IllegalStateException("no payload selected"))
+
+                PendingMode.None ->
+                    Result.failure(IllegalStateException("no action queued"))
             }
+            Toast.makeText(
+                context,
+                result.fold(
+                    onSuccess = { R.string.ghostlock_success },
+                    onFailure = { R.string.ghostlock_failed },
+                ),
+                Toast.LENGTH_LONG,
+            ).show()
+            busy = false
+            pendingMode = PendingMode.None
+            customUri = null
         }
     }
 
     if (showMenu) {
         GhostlockMenuDialog(
-            enabled = !running,
+            pendingMode = pendingMode,
+            busy = busy,
             onCheckOnline = {
-                showMenu = false
-                showLog = true
-                running = true
-                logLines.clear()
+                busy = true
                 scope.launch {
                     val supported = repository.isKernelSupportedOnline().getOrDefault(false)
-                    if (!supported) {
+                    if (supported) {
+                        pendingMode = PendingMode.Online
+                    } else {
                         Toast.makeText(
                             context,
                             R.string.ghostlock_not_supported_online,
                             Toast.LENGTH_LONG,
                         ).show()
-                        showLog = false
-                    } else {
-                        val result = repository.runExploit(repository.kernelRelease) { line ->
-                            logLines.add(line)
-                        }
-                        Toast.makeText(
-                            context,
-                            result.fold(
-                                onSuccess = { R.string.ghostlock_success },
-                                onFailure = { R.string.ghostlock_failed },
-                            ),
-                            Toast.LENGTH_LONG,
-                        ).show()
                     }
-                    running = false
+                    busy = false
                 }
             },
             onUseCustomPayload = {
                 pickPayloadLauncher.launch(arrayOf("*/*"))
             },
-            onDismiss = { showMenu = false },
+            onStart = { showConsent = true },
+            onDismiss = {
+                showMenu = false
+                pendingMode = PendingMode.None
+                customUri = null
+            },
+        )
+    }
+
+    if (showConsent) {
+        GhostlockConsentDialog(
+            onAgree = { startRun() },
+            onDisagree = { showConsent = false },
         )
     }
 
@@ -134,9 +162,11 @@ fun GhostlockButton(
 
 @Composable
 private fun GhostlockMenuDialog(
-    enabled: Boolean,
+    pendingMode: PendingMode,
+    busy: Boolean,
     onCheckOnline: () -> Unit,
     onUseCustomPayload: () -> Unit,
+    onStart: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -152,24 +182,60 @@ private fun GhostlockMenuDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(
-                    onClick = onCheckOnline,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) {
-                    Text(stringResource(R.string.ghostlock_check_online))
+                if (pendingMode == PendingMode.None) {
+                    Button(
+                        onClick = onCheckOnline,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.ghostlock_check_online))
+                    }
+                    OutlinedButton(
+                        onClick = onUseCustomPayload,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.ghostlock_use_custom_payload))
+                    }
+                } else {
+                    Button(
+                        onClick = onStart,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    ) {
+                        Text(stringResource(R.string.ghostlock_start))
+                    }
                 }
-                OutlinedButton(
-                    onClick = onUseCustomPayload,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.ghostlock_use_custom_payload))
-                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun GhostlockConsentDialog(
+    onAgree: () -> Unit,
+    onDisagree: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDisagree,
+        title = { Text(stringResource(R.string.ghostlock_warning_title)) },
+        text = { Text(stringResource(R.string.ghostlock_warning)) },
+        confirmButton = {
+            TextButton(onClick = onAgree) {
+                Text(stringResource(R.string.ghostlock_agree))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDisagree) {
+                Text(stringResource(R.string.ghostlock_disagree))
             }
         },
     )

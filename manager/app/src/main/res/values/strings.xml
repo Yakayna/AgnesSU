@@ -91,6 +91,10 @@
     <string name="ghostlock_failed">GhostLock failed</string>
     <string name="ghostlock_check_online">Check online</string>
     <string name="ghostlock_use_custom_payload">Use custom payload.so</string>
+    <string name="ghostlock_warning_title">Warning</string>
+    <string name="ghostlock_warning">IMPORTANT NOTE: IF THE FIRST TRY DOESN\'T WORK, TRY AGAIN — THERE IS NO GUARANTEE IT WILL WORK ON THE FIRST TRY.\nDisclaimer: I am not responsible for your actions; anything like bricking or damaging your device is entirely your own responsibility :D</string>
+    <string name="ghostlock_agree">I agree</string>
+    <string name="ghostlock_disagree">I don\'t agree</string>
     <string name="jailbreak_timeout">Jailbreak may have failed, please check logs</string>
     <string name="jailbreak_flash_warning">You are in **Jailbreak mode**. Flashing a partition on a device with a **locked bootloader** will break AVB (Android Verified Boot) and may cause the device to **fail to boot**.\n\nMake sure your bootloader is unlocked before proceeding!</string>
     <string name="jailbreak_flash_warning_countdown">Continue (%1$d)</string>
@@ -565,21 +569,24 @@
     <string name="settings_check_beta_update">Check beta updates</string>
     <string name="settings_check_beta_update_summary">Auto-check beta builds from the main branch</string>
     <string name="special_category">Special</string>
-    <string name="install_libtgpa_title">Install libtgpa.so into AOV</string>
-    <string name="install_libtgpa_summary">Replace libtgpa.so in Arena of Valor (com.garena.game.kgvn) using root</string>
-    <string name="libtgpa_screen_desc">Pick a libtgpa.so file, then AgnesSU replaces the one inside Arena of Valor (arm64) using root and keeps 755 permissions.</string>
+    <string name="install_libtgpa_title">Install libtgpa.so</string>
+    <string name="install_libtgpa_summary">Replace libtgpa.so in a chosen app using root</string>
+    <string name="libtgpa_screen_desc">Pick a libtgpa.so file and a target app, then AgnesSU replaces the library inside the app\'s arm64 native folder using root and keeps 755 permissions.</string>
     <string name="libtgpa_pick_file">Choose libtgpa.so</string>
+    <string name="libtgpa_pick_package">Choose target app</string>
+    <string name="libtgpa_selected_package">Target: %1$s</string>
+    <string name="libtgpa_search_package">Search apps</string>
     <string name="libtgpa_selected_file">Selected: %1$s</string>
     <string name="libtgpa_no_file">No file selected yet</string>
     <string name="libtgpa_start">Start</string>
-    <string name="libtgpa_reinstall_dialog_title">Reinstall the game?</string>
-    <string name="libtgpa_reinstall_dialog_msg">Have you already reinstalled Arena of Valor?
+    <string name="libtgpa_reinstall_dialog_title">Reinstall the app?</string>
+    <string name="libtgpa_reinstall_dialog_msg">Have you already reinstalled the target app?
 
 If not, AgnesSU can reinstall it now with root before replacing the library.</string>
     <string name="libtgpa_reinstall_yes">Already reinstalled</string>
     <string name="libtgpa_reinstall_no">Reinstall for me</string>
     <string name="libtgpa_cancel">Cancel</string>
-    <string name="libtgpa_game_not_installed">Arena of Valor (com.garena.game.kgvn) is not installed</string>
+    <string name="libtgpa_game_not_installed">Target app (%1$s) is not installed</string>
     <string name="libtgpa_reinstalling">Reinstalling the game with root...</string>
     <string name="libtgpa_patching">Replacing libtgpa.so...</string>
     <string name="libtgpa_success">Done! libtgpa.so was replaced successfully.</string>

@@ -1,10 +1,12 @@
 package com.agnessu.yakayn.ui.screen
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +17,12 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,8 +43,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -49,6 +58,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.data.shell.KsuCliRepository
+import com.agnessu.yakayn.ui.component.PackageIcon
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.topjohnwu.superuser.Shell
@@ -58,7 +68,9 @@ import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import java.io.File
 
-private const val AOV_PACKAGE = "com.garena.game.kgvn"
+private const val DEFAULT_PACKAGE = "com.garena.game.kgvn"
+
+private data class PackageChoice(val packageName: String, val label: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +82,10 @@ fun InstallLibtgpaScreen() {
 
     var selectedUri by remember { mutableStateOf<Uri?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
+    var targetPackage by remember { mutableStateOf(DEFAULT_PACKAGE) }
+    var showPackagePicker by remember { mutableStateOf(false) }
+    var packageQuery by remember { mutableStateOf("") }
+    var installedApps by remember { mutableStateOf<List<PackageChoice>>(emptyList()) }
     var showReinstallDialog by remember { mutableStateOf(false) }
     var working by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
@@ -77,10 +93,36 @@ fun InstallLibtgpaScreen() {
     val patchingMsg = stringResource(R.string.libtgpa_patching)
     val reinstallingMsg = stringResource(R.string.libtgpa_reinstalling)
     val successMsg = stringResource(R.string.libtgpa_success)
-    val notInstalledMsg = stringResource(R.string.libtgpa_game_not_installed)
+    val notInstalledFmt = stringResource(R.string.libtgpa_game_not_installed)
     val libDirMissingMsg = stringResource(R.string.libtgpa_libdir_missing)
     val copyFailedMsg = stringResource(R.string.libtgpa_copy_failed)
     val failedFmt = stringResource(R.string.libtgpa_failed)
+
+    // Friendly label for the currently selected package, for the summary line.
+    val targetLabel by produceState(initialValue = targetPackage, targetPackage) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val pm = context.packageManager
+                val info = pm.getApplicationInfo(targetPackage, 0)
+                pm.getApplicationLabel(info).toString()
+            }.getOrNull() ?: targetPackage
+        }
+    }
+
+    LaunchedEffect(showPackagePicker) {
+        if (showPackagePicker) {
+            installedApps = withContext(Dispatchers.IO) {
+                val pm = context.packageManager
+                pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                    .mapNotNull { info ->
+                        val label = runCatching { pm.getApplicationLabel(info).toString() }.getOrNull()
+                            ?: info.packageName
+                        PackageChoice(info.packageName, label)
+                    }
+                    .sortedBy { it.label.lowercase() }
+            }
+        }
+    }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -94,6 +136,7 @@ fun InstallLibtgpaScreen() {
 
     fun runFlow(reinstall: Boolean) {
         val uri = selectedUri ?: return
+        val pkg = targetPackage
         working = true
         log = ""
         scope.launch {
@@ -109,10 +152,10 @@ fun InstallLibtgpaScreen() {
 
                 val shell = ksuCli.getRootShell()
 
-                // 2. the game must be installed
-                val (pathOk, pathOut) = shExec(shell, "pm path $AOV_PACKAGE")
+                // 2. the target app must be installed
+                val (pathOk, pathOut) = shExec(shell, "pm path $pkg")
                 if (!pathOk || pathOut.none { it.startsWith("package:") }) {
-                    return@withContext notInstalledMsg
+                    return@withContext notInstalledFmt.format(pkg)
                 }
 
                 // 3. optional reinstall (session install of all splits from the on-device apks)
@@ -139,11 +182,11 @@ fun InstallLibtgpaScreen() {
                 withContext(Dispatchers.Main) { log = patchingMsg }
 
                 // 4. locate the apk dir again (the path changes after a reinstall)
-                val (path2Ok, path2Out) = shExec(shell, "pm path $AOV_PACKAGE")
+                val (path2Ok, path2Out) = shExec(shell, "pm path $pkg")
                 val base = path2Out.firstOrNull { it.startsWith("package:") }
                     ?.removePrefix("package:")?.trim()
                 if (!path2Ok || base.isNullOrEmpty()) {
-                    return@withContext notInstalledMsg
+                    return@withContext notInstalledFmt.format(pkg)
                 }
                 val apkDir = base.substringBeforeLast('/')
                 val libDir = "$apkDir/lib/arm64"
@@ -168,6 +211,65 @@ fun InstallLibtgpaScreen() {
             log = result
             working = false
         }
+    }
+
+    if (showPackagePicker) {
+        val filtered = installedApps.filter {
+            packageQuery.isBlank() ||
+                it.label.contains(packageQuery, ignoreCase = true) ||
+                it.packageName.contains(packageQuery, ignoreCase = true)
+        }
+        AlertDialog(
+            onDismissRequest = { showPackagePicker = false },
+            title = { Text(stringResource(R.string.libtgpa_pick_package)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = packageQuery,
+                        onValueChange = { packageQuery = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        placeholder = { Text(stringResource(R.string.libtgpa_search_package)) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                        items(filtered, key = { it.packageName }) { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        targetPackage = app.packageName
+                                        showPackagePicker = false
+                                        packageQuery = ""
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                PackageIcon(
+                                    packageName = app.packageName,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(36.dp),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text(app.label, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        app.packageName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPackagePicker = false }) {
+                    Text(stringResource(R.string.libtgpa_cancel))
+                }
+            },
+        )
     }
 
     if (showReinstallDialog) {
@@ -240,6 +342,20 @@ fun InstallLibtgpaScreen() {
             Text(
                 text = selectedName?.let { stringResource(R.string.libtgpa_selected_file, it) }
                     ?: stringResource(R.string.libtgpa_no_file),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedButton(
+                onClick = { showPackagePicker = true },
+                enabled = !working,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.libtgpa_pick_package))
+            }
+
+            Text(
+                text = stringResource(R.string.libtgpa_selected_package, targetLabel),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
