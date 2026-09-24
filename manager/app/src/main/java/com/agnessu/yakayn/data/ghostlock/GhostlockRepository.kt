@@ -1,6 +1,7 @@
 package com.agnessu.yakayn.data.ghostlock
 
 import android.content.Context
+import android.net.Uri
 import android.system.Os
 import android.util.Base64
 import com.agnessu.yakayn.data.network.NetworkRequestRepository
@@ -146,6 +147,40 @@ class GhostlockRepository(
             }
         }
 
+    /**
+     * Runs a user-supplied payload.so instead of the bundled libghostlock.so.
+     * The picked content:// file is copied into filesDir and chmod'd 0755, then
+     * executed with the same offsets + ksud setup as the built-in path — except
+     * the kernel is deliberately NOT checked online here, so a custom payload
+     * may target any kernel. Offsets are written only when the running kernel
+     * happens to have an online entry (best effort).
+     */
+    suspend fun runCustomPayload(uri: Uri, onLog: (String) -> Unit): Result<Int> =
+        withContext(Dispatchers.IO) {
+            try {
+                val workDir = context.filesDir
+                val payload = File(workDir, "ghostlock_custom.so")
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    payload.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("cannot open picked payload")
+                Os.chmod(payload.absolutePath, 0b111101101) // 0755
+                onLog("custom payload staged to ${payload.absolutePath}")
+
+                runCatching {
+                    val offsets = extractOffsets(kernelRelease).getOrThrow()
+                    File(workDir, "offsets.json").writeText("[${offsets}]")
+                    onLog("offsets.json written for $kernelRelease")
+                }.onFailure { onLog("offsets skipped: ${it.message}") }
+
+                prepareKsud(workDir, onLog)
+                Result.success(runPayload(payload, workDir, onLog))
+            } catch (error: kotlinx.coroutines.CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                Result.failure(error)
+            }
+        }
+
     private suspend fun doRunExploit(release: String, onLog: (String) -> Unit): Int {
         val workDir = context.filesDir
         val payload = File(context.applicationInfo.nativeLibraryDir, "libghostlock.so")
@@ -156,7 +191,11 @@ class GhostlockRepository(
         onLog("offsets.json written for $release")
 
         prepareKsud(workDir, onLog)
+        return runPayload(payload, workDir, onLog)
+    }
 
+    /** Executes [payload] from [workDir], streaming its merged output to [onLog]. */
+    private fun runPayload(payload: File, workDir: File, onLog: (String) -> Unit): Int {
         val process = ProcessBuilder(payload.absolutePath)
             .directory(workDir)
             .redirectErrorStream(true)

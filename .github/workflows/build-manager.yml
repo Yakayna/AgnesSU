@@ -387,7 +387,7 @@ jobs:
           upload_dir() {
             local dir="$1" pkg_desc="$2" pkg="$3"
             local apk
-            for apk in "$dir"/*.apk; do
+            for apk in "$dir"/*-universal-release.apk; do
               [ -f "$apk" ] || continue
               local fname base prefix variant versionCode version label
               fname="$(basename "$apk")"

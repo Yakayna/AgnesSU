@@ -89,6 +89,8 @@
     <string name="ghostlock_not_supported_online">Kernel not supported by GhostLock online</string>
     <string name="ghostlock_success">GhostLock finished</string>
     <string name="ghostlock_failed">GhostLock failed</string>
+    <string name="ghostlock_check_online">Check online</string>
+    <string name="ghostlock_use_custom_payload">Use custom payload.so</string>
     <string name="jailbreak_timeout">Jailbreak may have failed, please check logs</string>
     <string name="jailbreak_flash_warning">You are in **Jailbreak mode**. Flashing a partition on a device with a **locked bootloader** will break AVB (Android Verified Boot) and may cause the device to **fail to boot**.\n\nMake sure your bootloader is unlocked before proceeding!</string>
     <string name="jailbreak_flash_warning_countdown">Continue (%1$d)</string>
