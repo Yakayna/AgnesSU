@@ -4,3 +4,15 @@ build.sh
 *.code-workspace
 .trae
 /userspace/ksud/.lkm_image_bootstrap.o
+
+# Local build config (machine-specific, must never be committed)
+local.properties
+.env
+*.jks
+*.keystore
+
+# Local build output (built APKs for manual Telegram upload)
+dist/
+
+# Compiled GhostLock payload (build artifact — see manager/ghostlock/Makefile)
+manager/ghostlock/ghostlock

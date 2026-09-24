@@ -290,6 +290,16 @@
     <string name="reboot_soft">Khởi động lại phần mềm</string>
     <string name="jailbreak_mode">Chế độ Jailbreak</string>
     <string name="home_jailbreak">Bẻ Khóa</string>
+    <string name="home_ghostlock">Ghostlock</string>
+    <string name="ghostlock_checking">Đang kiểm tra…</string>
+    <string name="ghostlock_start">Bắt đầu</string>
+    <string name="ghostlock_unsupported">Không khớp</string>
+    <string name="ghostlock_running">Đang chạy…</string>
+    <string name="ghostlock_log_title">Ghostlock</string>
+    <string name="ghostlock_close">Đóng</string>
+    <string name="ghostlock_not_supported_online">Kernel không có trong danh sách GhostLock online</string>
+    <string name="ghostlock_success">GhostLock đã hoàn tất</string>
+    <string name="ghostlock_failed">GhostLock thất bại</string>
     <string name="jailbreak_timeout">Quá trình Jailbreak có thể thất bại, vui lòng kiểm tra nhật ký</string>
     <string name="jailbreak_flash_warning">Bạn đang ở **chế độ Jailbreak**. Việc ghi lại phân vùng trên thiết bị có **bootloader bị khóa** sẽ làm hỏng AVB (Android Verified Boot) và có thể khiến thiết bị **không khởi động được**.\n\nHãy đảm bảo rằng bootloader của bạn đã được mở khóa trước khi tiếp tục!</string>
     <string name="jailbreak_flash_warning_countdown">Tiếp tục (%1$d)</string>
@@ -418,5 +428,5 @@ Nếu chưa, AgnesSU có thể cài lại ngay bằng quyền root trước khi 
     <string name="profile_flags">Cờ</string>
     <string name="background_crop_method_title">Chọn 1 phương thức crop</string>
     <string name="background_crop_failed">Cắt ảnh thất bại</string>
-    <string name="about_anime_character_sticker"><![CDATA[Hệ thống biểu tượng được cấp phép theo điều khoản thỏa thuận đặc biệt: tác phẩm do 怡子曰曰 vẽ minh họa, quyền tác giả thuộc về 明风 OuO, và các biểu tượng định dạng vector do dự án này cung cấp.]]></string>
+    <string name="about_anime_character_sticker">Agnes Tàychyon by @Sinectrea</string>
 </resources>

@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.agp.app)
     alias(libs.plugins.androidx.baselineprofile)
@@ -184,6 +186,32 @@ aboutLibraries {
         // Configure the duplication rule, to match "duplicates" with
         duplicationRule = com.mikepenz.aboutlibraries.plugin.DuplicateRule.SIMPLE
     }
+}
+
+// GhostLock: compile the vendored kernel-exploit core into libghostlock.so (arm64 PIE).
+// build_payload.sh resolves the NDK from ANDROID_HOME / sdk.dir and runs clang directly (no make).
+val buildGhostlockPayload = tasks.register<Exec>("buildGhostlockPayload") {
+    group = "ghostlock"
+    description = "Compile the GhostLock arm64 payload into app/src/main/jniLibs/arm64-v8a/libghostlock.so"
+    commandLine("bash", rootProject.file("ghostlock/build_payload.sh").absolutePath)
+
+    // Resolve sdk.dir from local.properties (Properties.load decodes the escaped
+    // Windows path, e.g. "E\:\\Android\\Sdk" -> "E:\Android\Sdk") and expose it as
+    // ANDROID_HOME so build_payload.sh can locate the NDK without its own parsing.
+    val localProps = Properties()
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use {
+        localProps.load(it)
+    }
+    val sdkDir = localProps.getProperty("sdk.dir") ?: System.getenv("ANDROID_HOME")
+    if (!sdkDir.isNullOrBlank()) {
+        environment("ANDROID_HOME", sdkDir)
+    }
+
+    outputs.upToDateWhen { false }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(buildGhostlockPayload)
 }
 
 dependencies {

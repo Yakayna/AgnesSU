@@ -15,6 +15,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
@@ -619,17 +620,26 @@ private fun StatusCard(
                 title = stringResource(R.string.home_not_installed),
                 description = stringResource(R.string.home_click_to_install),
                 onClick = onClick,
-                trailingContent = if (systemStatus.isSELinuxPermissive) {
+                trailingContent = if (
+                    Os.uname().machine == "aarch64" || systemStatus.isSELinuxPermissive
+                ) {
                     {
-                        Button(
-                            onClick = onClickJailbreak,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (Os.uname().machine == "aarch64") {
+                                GhostlockButton()
+                            }
+                            if (systemStatus.isSELinuxPermissive) {
+                                Button(
+                                    onClick = onClickJailbreak,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
 
-                        ) {
-                            Text(stringResource(R.string.home_jailbreak))
+                                ) {
+                                    Text(stringResource(R.string.home_jailbreak))
+                                }
+                            }
                         }
                     }
                 } else null

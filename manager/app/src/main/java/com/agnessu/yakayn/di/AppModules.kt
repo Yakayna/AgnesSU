@@ -9,6 +9,7 @@ import com.agnessu.yakayn.data.count.CountRepository
 import com.agnessu.yakayn.data.download.DownloadRepository
 import com.agnessu.yakayn.data.file.ModuleFileRepository
 import com.agnessu.yakayn.data.flash.FlashRepository
+import com.agnessu.yakayn.data.ghostlock.GhostlockRepository
 import com.agnessu.yakayn.data.kernel.KernelRepository
 import com.agnessu.yakayn.data.kernel.UmountRepository
 import com.agnessu.yakayn.data.logging.BugreportRepository
@@ -259,6 +260,7 @@ val repositoryModule = module {
     singleOf(::HomeStateRepository)
     singleOf(::NetworkStatusRepository)
     singleOf(::NetworkRequestRepository)
+    single { GhostlockRepository(androidApplication(), get()) }
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
     singleOf(::BugreportRepository)

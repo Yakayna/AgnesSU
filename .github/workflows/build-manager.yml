@@ -346,7 +346,7 @@ jobs:
           path: dist/*.apk
 
   telegram-upload:
-    needs: [repack-manager]
+    needs: [repack-manager, prepare]
     if: always() && github.event_name == 'push' && github.ref_name == 'main' && needs.repack-manager.result == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -356,20 +356,64 @@ jobs:
           name: Manager-release
           path: manager
 
+      - name: Download Spoofed Manager release APK
+        uses: actions/download-artifact@v8
+        with:
+          name: Spoofed-Manager-release
+          path: spoofed-manager
+
       - name: Upload to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CHANGELOG: ${{ github.event.head_commit.message }}
+          SPOOFED_PACKAGE: ${{ needs.prepare.outputs.spoofed_package_name }}
         run: |
           if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
             echo "Telegram secrets not configured; skipping upload."
             exit 0
           fi
-          for apk in manager/*.apk; do
-            [ -f "$apk" ] || continue
-            echo "Uploading ${apk} to Telegram"
-            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
-              -F "chat_id=${TELEGRAM_CHAT_ID}" \
-              -F "document=@${apk}" \
-              -F "caption=${GITHUB_REPOSITORY} @ ${GITHUB_SHA}"
-          done
+
+          variant_label() {
+            case "$1" in
+              universal)    echo "Universal" ;;
+              arm64-v8a)    echo "ARM64" ;;
+              armeabi-v7a)  echo "ARMv7" ;;
+              x86_64)       echo "x86_64" ;;
+              *)            echo "$1" ;;
+            esac
+          }
+
+          upload_dir() {
+            local dir="$1" pkg_desc="$2" pkg="$3"
+            local apk
+            for apk in "$dir"/*.apk; do
+              [ -f "$apk" ] || continue
+              local fname base prefix variant versionCode version label
+              fname="$(basename "$apk")"
+              base="${fname%.apk}"
+              prefix="${base%%-*}"
+              variant="${base#*-}"
+              variant="${variant%-release}"
+              versionCode="${prefix##*_}"
+              version="${prefix#AgnesSU_}"
+              version="${version%_$versionCode}"
+              label="$(variant_label "$variant")"
+
+              local caption
+              caption="AgnesSU ${version}
+${CHANGELOG}
+${label} — ${pkg_desc} package (${pkg})
+AgnesSU-${version}-${versionCode}-${variant}-release"
+
+              echo "Uploading ${fname} (${label}, ${pkg})"
+              curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+                -F "chat_id=${TELEGRAM_CHAT_ID}" \
+                -F "document=@${apk}" \
+                -F "caption=${caption}"
+              echo
+            done
+          }
+
+          upload_dir manager "default" "com.agnessu.yakayn"
+          upload_dir spoofed-manager "random" "${SPOOFED_PACKAGE}"
