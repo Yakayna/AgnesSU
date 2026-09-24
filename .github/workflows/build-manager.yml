@@ -401,10 +401,9 @@ jobs:
               label="$(variant_label "$variant")"
 
               local caption
-              caption="AgnesSU ${version}
-${CHANGELOG}
-${label} — ${pkg_desc} package (${pkg})
-AgnesSU-${version}-${versionCode}-${variant}-release"
+              caption=$(printf '%s\n%s\n%s — %s package (%s)\n%s' \
+                "AgnesSU ${version}" "${CHANGELOG}" "${label}" "${pkg_desc}" "${pkg}" \
+                "AgnesSU-${version}-${versionCode}-${variant}-release")
 
               echo "Uploading ${fname} (${label}, ${pkg})"
               curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
