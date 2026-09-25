@@ -2,6 +2,7 @@ package com.agnessu.yakayn
 
 import android.app.Application
 import android.os.Build
+import com.agnessu.yakayn.data.shizuku.ShellTransport
 import com.agnessu.yakayn.di.appModules
 import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
 import kotlinx.coroutines.Dispatchers
@@ -15,11 +16,15 @@ class KernelSUApplication : Application() {
         super.onCreate()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val processName = getProcessName()
-            if (processName.endsWith("MagicaService")) {
-                // avoid loading unnecessary thing when starting MagicaService
+            // Skip heavy init for background processes: the Magica isolated
+            // process and the Shizuku shell-service process.
+            if (processName.endsWith("MagicaService") || processName.endsWith(":service")) {
                 return
             }
         }
+
+        // Register Shizuku binder listeners in the main process only.
+        ShellTransport.init()
 
         val koin = startKoin {
             androidLogger()

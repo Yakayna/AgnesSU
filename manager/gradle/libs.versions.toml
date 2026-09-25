@@ -20,6 +20,7 @@ appiconloader = "1.5.0"
 hiddenapibypass = "6.1"
 parcelablelist = "2.0.1"
 libsu = "6.0.0"
+shizuku = "13.1.5"
 apksign = "1.4"
 compose-material3 = "1.5.0-alpha28"
 compose-ui = "1.11.2"
@@ -80,6 +81,8 @@ com-github-topjohnwu-libsu-service = { group = "com.github.topjohnwu.libsu", nam
 com-github-topjohnwu-libsu-io = { group = "com.github.topjohnwu.libsu", name = "io", version.ref = "libsu" }
 
 dev-rikka-rikkax-parcelablelist = { module = "dev.rikka.rikkax.parcelablelist:parcelablelist", version.ref = "parcelablelist" }
+dev-rikka-shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
+dev-rikka-shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "core-splashscreen" }

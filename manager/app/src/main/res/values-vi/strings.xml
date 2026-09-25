@@ -306,6 +306,13 @@
     <string name="ghostlock_warning">LƯU Ý QUAN TRỌNG: NẾU THỬ LẦN ĐẦU KHÔNG ĐƯỢC THÌ HÃY THỬ TIẾP, KHÔNG CÓ GÌ ĐẢM BẢO LÀ SẼ ĐƯỢC LẦN ĐẦU.\nTuyên bố từ chối trách nhiệm: Tôi sẽ không chịu trách nhiệm với hành động của bạn, mọi việc như Brick/Hỏng máy sẽ do chính bản thân bạn tự chịu :D</string>
     <string name="ghostlock_agree">Toi dong tinh</string>
     <string name="ghostlock_disagree">Toi khong dong tinh</string>
+    <string name="ghostlock_page_title">Ghostlock</string>
+    <string name="ghostlock_section_kernel">GhostLock kernel exploit</string>
+    <string name="ghostlock_section_iqoo_vivo">[Beta] Iqoo/Vivo</string>
+    <string name="ghostlock_current_kernel">Kernel: %1$s</string>
+    <string name="ghostlock_detected_device">Máy nhận diện: %1$s</string>
+    <string name="ghostlock_iqoo_vivo_auto">Tự nhận diện</string>
+    <string name="ghostlock_shizuku_not_running">Shizuku chưa chạy. Hãy khởi động Shizuku trước.</string>
     <string name="jailbreak_timeout">Quá trình Jailbreak có thể thất bại, vui lòng kiểm tra nhật ký</string>
     <string name="jailbreak_flash_warning">Bạn đang ở **chế độ Jailbreak**. Việc ghi lại phân vùng trên thiết bị có **bootloader bị khóa** sẽ làm hỏng AVB (Android Verified Boot) và có thể khiến thiết bị **không khởi động được**.\n\nHãy đảm bảo rằng bootloader của bạn đã được mở khóa trước khi tiếp tục!</string>
     <string name="jailbreak_flash_warning_countdown">Tiếp tục (%1$d)</string>

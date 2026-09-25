@@ -73,6 +73,7 @@ import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
 import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
+import com.agnessu.yakayn.ui.screen.GhostlockScreen
 import com.agnessu.yakayn.ui.screen.InstallScreen
 import com.agnessu.yakayn.ui.screen.SulogScreen
 import com.agnessu.yakayn.ui.screen.TemplateEditorScreen
@@ -621,6 +622,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     InstallLibtgpaScreen()
+                }
+            }
+            entry<Route.Ghostlock>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    GhostlockScreen()
                 }
             }
             entry<Route.KernelFlash>(swipeDismiss = NavSwipeDirection.None) { key ->

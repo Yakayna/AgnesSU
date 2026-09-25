@@ -264,6 +264,8 @@ dependencies {
     implementation(libs.capsule)
 
     implementation(libs.dev.rikka.rikkax.parcelablelist)
+    implementation(libs.dev.rikka.shizuku.api)
+    implementation(libs.dev.rikka.shizuku.provider)
 
     implementation(libs.io.coil.kt.coil.compose)
     implementation(libs.ucrop)

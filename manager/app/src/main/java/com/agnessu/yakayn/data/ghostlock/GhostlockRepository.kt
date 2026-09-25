@@ -5,11 +5,14 @@ import android.net.Uri
 import android.system.Os
 import android.util.Base64
 import com.agnessu.yakayn.data.network.NetworkRequestRepository
+import com.agnessu.yakayn.data.shizuku.ShellTransport
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
  * GhostLock kernel-exploit integration.
@@ -180,6 +183,137 @@ class GhostlockRepository(
                 Result.failure(error)
             }
         }
+
+    /**
+     * Runs a bundled iQOO/Vivo preload payload through the LD_PRELOAD trigger.
+     * These payloads are ET_DYN shared libraries (no PT_INTERP), so they can't
+     * be exec'd directly — they are applied as LD_PRELOAD to a trivial shell
+     * binary inside the shell domain, mirroring the RootMyVivo chain:
+     *
+     *   1. stage preload.so + our ksud into /data/local/tmp/rmv via Shizuku,
+     *   2. fire `LD_PRELOAD=.../preload.so /system/bin/true` in the background,
+     *   3. poll the exploit's su client for uid=0,
+     *   4. run `ksud late-load --allow-shell` (ksud embeds the .ko by KMI).
+     *
+     * The GhostLock direct-exec path is untouched; only this family needs the
+     * shell-domain bridge.
+     */
+    suspend fun runIqooVivoPayload(
+        payload: IqooVivoPayload,
+        onLog: (String) -> Unit,
+    ): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            Result.success(doRunIqooVivo(payload, onLog))
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun doRunIqooVivo(payload: IqooVivoPayload, onLog: (String) -> Unit): Int {
+        val remoteDir = "/data/local/tmp/rmv"
+        val remotePayload = "$remoteDir/preload.so"
+        val remoteKsud = "$remoteDir/ksud"
+        val suClient = "/data/local/tmp/su"
+
+        // 1. Read + verify the asset (content-addressed by sha256).
+        val payloadBytes = context.assets.open(payload.asset).use { it.readBytes() }
+        val actual = sha256(payloadBytes)
+        if (!actual.equals(payload.sha256, ignoreCase = true)) {
+            error("payload checksum mismatch: $actual")
+        }
+        onLog("payload verified ($actual)")
+
+        // 2. Shizuku must be alive and authorized before anything can be staged.
+        if (!ShellTransport.alive) error("Shizuku is not running — start it first")
+        if (!ShellTransport.permissionGranted()) error("Shizuku permission not granted")
+
+        // 3. Stage payload + ksud into the shell-owned work dir.
+        val (mkdirCode, _) = ShellTransport.exec(context, "mkdir -p $remoteDir && chmod 755 $remoteDir")
+        onLog("mkdir $remoteDir -> $mkdirCode")
+
+        val (deployOk, deployErr) = ShellTransport.deploy(context, payloadBytes, remotePayload)
+        if (!deployOk) error("deploy preload.so failed: $deployErr")
+        onLog("preload.so staged to $remotePayload")
+
+        val ksudSource = File(context.applicationInfo.nativeLibraryDir, "libksud.so")
+        if (ksudSource.isFile) {
+            val (ksudOk, ksudErr) = ShellTransport.deploy(context, ksudSource.readBytes(), remoteKsud)
+            if (!ksudOk) {
+                onLog("ksud deploy failed (late-load will search installed apps): $ksudErr")
+            } else {
+                ShellTransport.exec(context, "chmod 755 $remoteKsud")
+                onLog("ksud staged to $remoteKsud")
+            }
+        } else {
+            onLog("warning: libksud.so missing (build ksud + repack); late-load will search installed apps")
+        }
+
+        // 4. Fire the LD_PRELOAD trigger in the background inside the shell domain.
+        val trigger = "cd $remoteDir && (RMV_ATTEMPTS='3' RMV_RETRY_DELAY='8' " +
+            "LD_PRELOAD=$remotePayload /system/bin/true > live.log 2>&1 &)"
+        val (triggerCode, _) = ShellTransport.exec(context, trigger)
+        onLog("LD_PRELOAD trigger fired (exit=$triggerCode); waiting for root…")
+
+        // 5. Poll the exploit's su client for uid=0. The local client answers
+        //    for the RMV payloads; upstream payloads drop su in PATH instead.
+        val probe = "tail -n 20 $remoteDir/live.log 2>/dev/null; echo __RMV_SU__; " +
+            "timeout 5 $suClient -c id 2>/dev/null || timeout 5 su -c id 2>/dev/null; echo __RMV_END__"
+        val deadline = System.currentTimeMillis() + 120_000
+        var rooted = false
+        var lastTail = ""
+        while (!rooted && System.currentTimeMillis() < deadline) {
+            val (_, out) = ShellTransport.exec(context, probe)
+            val tail = out.substringBefore("__RMV_SU__").trim()
+            val suPart = out.substringAfter("__RMV_SU__", "").substringBefore("__RMV_END__").trim()
+            if (tail.isNotBlank() && tail != lastTail) {
+                lastTail = tail
+                tail.lines().filter { it.isNotBlank() }.forEach(onLog)
+            }
+            if (suPart.contains("uid=0")) {
+                rooted = true
+                break
+            }
+            delay(2_000)
+        }
+        if (!rooted) error("exploit did not gain root within 120s")
+
+        // 6. Late-load KernelSU. ksud daemonizes internally (fork + detach), so
+        //    the su -c returns as soon as the daemon is spawned; the daemon then
+        //    loads the .ko (embedded by KMI), installs ksud, and force-stops /
+        //    restarts this manager so it picks up a fresh ksu fd.
+        val packageName = context.packageName
+        val lateLoadCmd = "$remoteKsud late-load --allow-shell --package-name $packageName"
+        val wrapped = lateLoadCmd.replace("'", "'\\''")
+        onLog("spawning ksud late-load (allow_shell, $packageName)…")
+        val (llCode, llOut) = ShellTransport.exec(
+            context,
+            "$suClient -c '$wrapped' || su -c '$wrapped'",
+        )
+        llOut.lineSequence().filter { it.isNotBlank() }.forEach(onLog)
+        onLog("ksud late-load spawn exit=$llCode")
+        if (llCode != 0) error("ksud late-load spawn failed (exit=$llCode)")
+        return 0
+    }
+
+    private fun sha256(bytes: ByteArray): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        return digest.digest(bytes).joinToString("") { "%02x".format(it) }
+    }
+
+    private fun sha256(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 
     private suspend fun doRunExploit(release: String, onLog: (String) -> Unit): Int {
         val workDir = context.filesDir

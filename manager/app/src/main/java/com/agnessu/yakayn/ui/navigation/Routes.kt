@@ -151,6 +151,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object Ghostlock : Route
+
+    @Parcelize
+    @Serializable
     data class KernelFlash(
         val kernelUri: String,
         val selectedSlot: String?,

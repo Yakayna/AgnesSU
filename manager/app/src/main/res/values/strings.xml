@@ -95,6 +95,13 @@
     <string name="ghostlock_warning">IMPORTANT NOTE: IF THE FIRST TRY DOESN\'T WORK, TRY AGAIN — THERE IS NO GUARANTEE IT WILL WORK ON THE FIRST TRY.\nDisclaimer: I am not responsible for your actions; anything like bricking or damaging your device is entirely your own responsibility :D</string>
     <string name="ghostlock_agree">I agree</string>
     <string name="ghostlock_disagree">I don\'t agree</string>
+    <string name="ghostlock_page_title">Ghostlock</string>
+    <string name="ghostlock_section_kernel">GhostLock kernel exploit</string>
+    <string name="ghostlock_section_iqoo_vivo">[Beta] Iqoo/Vivo</string>
+    <string name="ghostlock_current_kernel">Kernel: %1$s</string>
+    <string name="ghostlock_detected_device">Detected device: %1$s</string>
+    <string name="ghostlock_iqoo_vivo_auto">Auto-detected</string>
+    <string name="ghostlock_shizuku_not_running">Shizuku is not running. Start Shizuku first.</string>
     <string name="jailbreak_timeout">Jailbreak may have failed, please check logs</string>
     <string name="jailbreak_flash_warning">You are in **Jailbreak mode**. Flashing a partition on a device with a **locked bootloader** will break AVB (Android Verified Boot) and may cause the device to **fail to boot**.\n\nMake sure your bootloader is unlocked before proceeding!</string>
     <string name="jailbreak_flash_warning_countdown">Continue (%1$d)</string>
