@@ -111,7 +111,7 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
             .start()
 
         val stdinStream = process.outputStream
-        val lengthHeader = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN)
+        val lengthHeader = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN)
             .putInt(profileBlob.size).array()
         stdinStream.write(lengthHeader)
         stdinStream.write(profileBlob)

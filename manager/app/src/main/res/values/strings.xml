@@ -104,6 +104,7 @@
     <string name="ghostlock_unsupported_arch">Architecture not supported (aarch64 only)</string>
     <string name="ghostlock_no_profile">No matching profile found for this kernel</string>
     <string name="ghostlock_profile_matched">Matched</string>
+    <string name="ghostlock_profile_supported">Supported</string>
     <string name="ghostlock_import_profile">Import .conf profile</string>
     <string name="ghostlock_profile_imported">Profile imported</string>
     <string name="ghostlock_import_failed">Import failed</string>

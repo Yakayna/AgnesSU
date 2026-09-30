@@ -315,6 +315,7 @@
     <string name="ghostlock_unsupported_arch">Kiến trúc không hỗ trợ (chỉ aarch64)</string>
     <string name="ghostlock_no_profile">Không tìm thấy profile phù hợp cho kernel này</string>
     <string name="ghostlock_profile_matched">Phù hợp</string>
+    <string name="ghostlock_profile_supported">Hỗ trợ</string>
     <string name="ghostlock_import_profile">Nhập file .conf profile</string>
     <string name="ghostlock_profile_imported">Đã nhập profile</string>
     <string name="ghostlock_import_failed">Nhập thất bại</string>

@@ -211,7 +211,7 @@ class AndroidGhostlockRepository(
 
         val stdinStream = process.outputStream
         val header = java.nio.ByteBuffer.allocate(4)
-            .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            .order(java.nio.ByteOrder.BIG_ENDIAN)
             .putInt(blob.size)
             .array()
         stdinStream.write(header)

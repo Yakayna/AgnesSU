@@ -87,6 +87,7 @@ fun GhostlockScreen() {
     val kernel = remember { repository.kernel }
     val profile = remember { repository.resolveActiveProfile() }
     val profiles = remember { repository.allAvailableProfiles() }
+    val matchedBuiltin = remember { repository.matchBuiltinProfile() }
     val cpuPairs = remember { repository.availableCpuPairs() }
 
     val busy = exploitState is ExploitState.Running || exploitState is ExploitState.Preparing
@@ -206,7 +207,13 @@ fun GhostlockScreen() {
                 )
             }
 
-            if (profiles.size > 1) {
+            if (matchedBuiltin != null) {
+                Text(
+                    text = stringResource(R.string.ghostlock_profile_supported),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            } else if (profiles.size > 1) {
                 profiles.forEach { summary ->
                     Row(
                         modifier = Modifier
