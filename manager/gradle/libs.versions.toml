@@ -39,6 +39,7 @@ agp-app = { id = "com.android.application", version.ref = "agp" }
 agp-test = { id = "com.android.test", version.ref = "agp" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
 kotlin = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 lsplugin-apksign = { id = "org.lsposed.lsplugin.apksign", version.ref = "apksign" }
@@ -85,6 +86,7 @@ dev-rikka-shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizu
 dev-rikka-shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+typesafe-config = { module = "com.typesafe:config", version = "1.4.3" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "core-splashscreen" }
 io-coil-kt-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil-compose" }
 ucrop = { module = "com.github.yalantis:ucrop", version.ref = "ucrop" }

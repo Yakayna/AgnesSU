@@ -2,7 +2,7 @@ package com.agnessu.yakayn
 
 import android.app.Application
 import android.os.Build
-import com.agnessu.yakayn.data.shizuku.ShellTransport
+import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.di.appModules
 import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
 import kotlinx.coroutines.Dispatchers
@@ -23,14 +23,13 @@ class KernelSUApplication : Application() {
             }
         }
 
-        // Register Shizuku binder listeners in the main process only.
-        ShellTransport.init()
-
         val koin = startKoin {
             androidLogger()
             androidContext(this@KernelSUApplication)
             modules(appModules)
         }.koin
+        koin.get<ShizukuExploitRunner>().init()
+
         runBlocking(Dispatchers.IO) {
             koin.get<InitializeApplicationUseCase>()()
         }

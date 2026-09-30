@@ -1,7 +1,5 @@
 package com.agnessu.yakayn.ui.screen
 
-import android.net.Uri
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,24 +15,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,107 +53,65 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.agnessu.yakayn.R
-import com.agnessu.yakayn.data.ghostlock.GhostlockRepository
-import com.agnessu.yakayn.data.ghostlock.IqooVivoPayload
-import com.agnessu.yakayn.data.ghostlock.IqooVivoPayloads
-import com.agnessu.yakayn.data.shizuku.ShellTransport
+import com.agnessu.yakayn.data.ghostlock.AndroidGhostlockRepository
+import com.agnessu.yakayn.data.ghostlock.ExploitState
+import com.agnessu.yakayn.data.ghostlock.ProfileSource
+import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
+import com.agnessu.yakayn.data.shizuku.ShizukuStatus
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-/** What the "Start" button is queued to run once the user agrees. */
-private enum class PendingMode { None, Online, CustomPayload, IqooVivo }
-
-/**
- * Dedicated GhostLock page. Home taps into this instead of a bare dialog so
- * future payload families can be added alongside the two sections here:
- *  - the GhostLock kernel exploit (online check + custom payload.so), and
- *  - the [Beta] Iqoo/Vivo preload payloads, auto-matched by device codename.
- *
- * Picking any action reveals a shared "Start" button; pressing it shows the
- * warning dialog, and only after the user agrees does the payload run, its
- * output streamed into a log dialog.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GhostlockScreen() {
     val context = LocalContext.current
-    val repository = koinInject<GhostlockRepository>()
+    val repository = koinInject<AndroidGhostlockRepository>()
+    val shizukuRunner = koinInject<ShizukuExploitRunner>()
     val navigator = LocalNavigator.current
     val scope = rememberCoroutineScope()
 
-    var busy by remember { mutableStateOf(false) }
-    var pendingMode by remember { mutableStateOf(PendingMode.None) }
-    var customUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedIqoo by remember { mutableStateOf<IqooVivoPayload?>(null) }
+    val settings by repository.settings.collectAsState()
+    val exploitState by repository.exploitState.collectAsState()
+    val shizukuStatus by shizukuRunner.status.collectAsState()
+
     var showConsent by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
     val logLines = remember { mutableStateListOf<String>() }
+    var cpuDropdownExpanded by remember { mutableStateOf(false) }
 
-    // Device codename comes from ro.product.device (Build.DEVICE); a few Vivo
-    // builds expose it under a sibling property instead, so match any of them.
-    val candidateCodenames = remember {
-        listOf(Build.DEVICE, Build.PRODUCT, Build.BOARD, Build.HARDWARE)
-            .map { it?.trim().orEmpty() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-    }
-    val autoMatches = remember(candidateCodenames) {
-        candidateCodenames.flatMap { IqooVivoPayloads.matching(it) }.distinct()
-    }
+    val kernel = remember { repository.kernel }
+    val profile = remember { repository.resolveActiveProfile() }
+    val profiles = remember { repository.allAvailableProfiles() }
+    val cpuPairs = remember { repository.availableCpuPairs() }
 
-    val pickPayloadLauncher = rememberLauncherForActivityResult(
+    val busy = exploitState is ExploitState.Running || exploitState is ExploitState.Preparing
+
+    val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) {
-            customUri = uri
-            selectedIqoo = null
-            pendingMode = PendingMode.CustomPayload
+            val imported = repository.importProfile(uri)
+            if (imported != null) {
+                repository.selectProfile(imported.id)
+                Toast.makeText(context, R.string.ghostlock_profile_imported, Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, R.string.ghostlock_import_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     fun startRun() {
-        val mode = pendingMode
-        val iqoo = selectedIqoo
-
-        // The Iqoo/Vivo path stages files and fires the exploit from the shell
-        // domain, so it needs Shizuku up and authorized before anything runs.
-        if (mode == PendingMode.IqooVivo) {
-            if (!ShellTransport.alive) {
-                Toast.makeText(
-                    context,
-                    R.string.ghostlock_shizuku_not_running,
-                    Toast.LENGTH_LONG,
-                ).show()
-                return
-            }
-            if (!ShellTransport.permissionGranted()) {
-                ShellTransport.requestPermission { startRun() }
-                return
-            }
+        if (settings.useShizuku && shizukuStatus == ShizukuStatus.PERMISSION_REQUIRED) {
+            shizukuRunner.requestPermission()
+            return
         }
-
         showConsent = false
         showLog = true
-        busy = true
         logLines.clear()
         scope.launch {
-            val result = when (mode) {
-                PendingMode.Online ->
-                    repository.runExploit(repository.kernelRelease) { line -> logLines.add(line) }
-
-                PendingMode.CustomPayload ->
-                    customUri?.let { repository.runCustomPayload(it) { line -> logLines.add(line) } }
-                        ?: Result.failure(IllegalStateException("no payload selected"))
-
-                PendingMode.IqooVivo ->
-                    iqoo?.let { repository.runIqooVivoPayload(it) { line -> logLines.add(line) } }
-                        ?: Result.failure(IllegalStateException("no payload selected"))
-
-                PendingMode.None ->
-                    Result.failure(IllegalStateException("no action queued"))
-            }
+            val result = repository.runExploit { line -> logLines.add(line) }
             Toast.makeText(
                 context,
                 result.fold(
@@ -158,10 +120,6 @@ fun GhostlockScreen() {
                 ),
                 Toast.LENGTH_LONG,
             ).show()
-            busy = false
-            pendingMode = PendingMode.None
-            customUri = null
-            selectedIqoo = null
         }
     }
 
@@ -197,82 +155,170 @@ fun GhostlockScreen() {
         ) {
             Spacer(Modifier.height(4.dp))
 
+            // --- Device info ---
+            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_device))
+
             Text(
-                text = stringResource(R.string.ghostlock_current_kernel, repository.kernelRelease),
+                text = stringResource(R.string.ghostlock_current_kernel, kernel.release),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_kernel))
-
-            Button(
-                onClick = {
-                    busy = true
-                    scope.launch {
-                        val supported = repository.isKernelSupportedOnline().getOrDefault(false)
-                        if (supported) {
-                            pendingMode = PendingMode.Online
-                            selectedIqoo = null
-                            customUri = null
-                        } else {
-                            Toast.makeText(
-                                context,
-                                R.string.ghostlock_not_supported_online,
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                        busy = false
-                    }
-                },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                Text(stringResource(R.string.ghostlock_check_online))
-            }
-
-            OutlinedButton(
-                onClick = { pickPayloadLauncher.launch(arrayOf("*/*")) },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.ghostlock_use_custom_payload))
-            }
-
-            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_iqoo_vivo))
-
-            if (Build.DEVICE.isNullOrBlank().not()) {
+            Text(
+                text = "SoC: ${kernel.soc} • ${kernel.deviceName}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!repository.isSupportedArch()) {
                 Text(
-                    text = stringResource(
-                        R.string.ghostlock_detected_device,
-                        Build.DEVICE,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.ghostlock_unsupported_arch),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
                 )
             }
 
-            IqooVivoPayloads.all.forEach { payload ->
-                IqooVivoEntryRow(
-                    payload = payload,
-                    selected = selectedIqoo == payload,
-                    autoMatched = autoMatches.contains(payload),
-                    onClick = {
-                        selectedIqoo = payload
-                        customUri = null
-                        pendingMode = PendingMode.IqooVivo
-                    },
+            // --- Profile ---
+            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_profile))
+
+            if (profile != null) {
+                Text(
+                    text = "${profile.displayName} (${profile.source.name.lowercase()})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (profile.isValid) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error,
+                )
+                if (!profile.isValid) {
+                    profile.errors.forEach { err ->
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.ghostlock_no_profile),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+
+            if (profiles.size > 1) {
+                profiles.forEach { summary ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { repository.selectProfile(summary.id) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = summary.id == (repository.selectedProfileId.value ?: profile?.profileId),
+                            onClick = { repository.selectProfile(summary.id) },
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = summary.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            if (summary.matched) {
+                                Text(
+                                    text = stringResource(R.string.ghostlock_profile_matched),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            Text(
+                                text = summary.source.name.lowercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.ghostlock_import_profile))
+            }
+
+            // --- Execution settings ---
+            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_settings))
+
+            ExposedDropdownMenuBox(
+                expanded = cpuDropdownExpanded,
+                onExpandedChange = { cpuDropdownExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = settings.cpuPair.toString(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.ghostlock_cpu_pair)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cpuDropdownExpanded) },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth(),
+                )
+                ExposedDropdownMenu(
+                    expanded = cpuDropdownExpanded,
+                    onDismissRequest = { cpuDropdownExpanded = false },
+                ) {
+                    cpuPairs.take(20).forEach { pair ->
+                        DropdownMenuItem(
+                            text = { Text(pair.toString()) },
+                            onClick = {
+                                repository.updateSettings { copy(cpuPair = pair) }
+                                cpuDropdownExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+
+            SettingsRow(
+                label = stringResource(R.string.ghostlock_safe_mode),
+                checked = settings.safeMode,
+                onCheckedChange = { repository.updateSettings { copy(safeMode = it) } },
+            )
+
+            SettingsRow(
+                label = stringResource(R.string.ghostlock_use_shizuku),
+                checked = settings.useShizuku,
+                onCheckedChange = { repository.updateSettings { copy(useShizuku = it) } },
+                subtitle = when (shizukuStatus) {
+                    ShizukuStatus.NOT_RUNNING -> stringResource(R.string.ghostlock_shizuku_not_running)
+                    ShizukuStatus.PERMISSION_REQUIRED -> stringResource(R.string.ghostlock_shizuku_permission)
+                    ShizukuStatus.READY -> stringResource(R.string.ghostlock_shizuku_ready)
+                },
+            )
+
+            // --- Status ---
+            val stateText = when (val state = exploitState) {
+                is ExploitState.Running -> "Running: ${state.step} ${state.status}"
+                is ExploitState.Preparing -> "Preparing..."
+                is ExploitState.Finished -> "Finished (exit ${state.exitCode})"
+                is ExploitState.Failed -> "Failed: ${state.error}"
+                is ExploitState.Idle -> null
+            }
+            if (stateText != null) {
+                Text(
+                    text = stateText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             Spacer(Modifier.height(4.dp))
 
+            // --- Start button ---
             Button(
                 onClick = { showConsent = true },
-                enabled = !busy && pendingMode != PendingMode.None,
+                enabled = !busy && profile?.isValid == true && repository.isSupportedArch(),
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -288,6 +334,33 @@ fun GhostlockScreen() {
 }
 
 @Composable
+private fun SettingsRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    subtitle: String? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium)
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
 private fun GhostlockSectionTitle(title: String) {
     Text(
         text = title,
@@ -295,43 +368,6 @@ private fun GhostlockSectionTitle(title: String) {
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(top = 8.dp),
     )
-}
-
-@Composable
-private fun IqooVivoEntryRow(
-    payload: IqooVivoPayload,
-    selected: Boolean,
-    autoMatched: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-        )
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = payload.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
-            )
-            if (autoMatched) {
-                Text(
-                    text = stringResource(R.string.ghostlock_iqoo_vivo_auto),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-    }
 }
 
 @Composable

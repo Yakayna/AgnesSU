@@ -21,5 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "AgnesSU"
 include(":app")
+include(":profile-core")
 include(":baselineprofile")
 include(":lint-rules")
