@@ -8,7 +8,12 @@ import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
 import com.agnessu.yakayn.profile.NativeProfileDocument
 import com.agnessu.yakayn.profile.ProfileResolver
+import com.agnessu.yakayn.profile.ValueMap
+import com.agnessu.yakayn.profile.asValueMap
+import com.agnessu.yakayn.profile.deepMergeValues
+import com.agnessu.yakayn.profile.mutableChild
 import com.agnessu.yakayn.profile.route.RouteKind
+import com.agnessu.yakayn.profile.valueMapOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -259,19 +264,20 @@ class AndroidGhostlockRepository(
         source: ProfileSource,
         config: Map<String, Any?>,
     ): ProfileConfig {
-        val release = config["release"] as? String ?: displayName
-        val route = routeToken(config) ?: RouteKind.TCP_ZEROCOPY.token
-        val fallbackTo = (config["fallback"] as? Map<*, *>)?.get("to") as? String
+        val merged = mergeExecutionDefaults(config)
+        val release = merged["release"] as? String ?: displayName
+        val route = routeToken(merged) ?: RouteKind.TCP_ZEROCOPY.token
+        val fallbackTo = (merged["fallback"] as? Map<*, *>)?.get("to") as? String
 
         val routeKind = RouteKind.fromToken(route) ?: RouteKind.TCP_ZEROCOPY
-        val errors = ProfileResolver.validateMerged(config, route, fallbackTo)
+        val errors = ProfileResolver.validateMerged(merged, route, fallbackTo)
         val document = if (errors.isEmpty()) {
             runCatching {
                 NativeProfileDocument.from(
                     release = release,
                     route = route,
                     fallbackTo = fallbackTo,
-                    value = { path -> ProfileResolver.nativeValue(config, route, fallbackTo, path) },
+                    value = { path -> ProfileResolver.nativeValue(merged, route, fallbackTo, path) },
                 )
             }.getOrNull()
         } else null
@@ -283,6 +289,55 @@ class AndroidGhostlockRepository(
             routeKind = routeKind,
             document = document,
             errors = errors.map { "${it.path}: ${it.message}" },
+        )
+    }
+
+    /**
+     * Merges the shared execution-tuning preset and the per-route presets into
+     * the profile before serialization. The bundled .conf profiles carry only
+     * kernel geometry; execution tuning ships in kernel_profiles/execution-*.conf
+     * (upstream ProfileMerger.resolveMerged). Without this merge every execution
+     * value (w1_attempts, heap.prepare_max_attempts, route attempts, ...) decodes
+     * to 0 and the native retry loops never make an attempt ("Write 1 failed").
+     */
+    private fun mergeExecutionDefaults(config: Map<String, Any?>): ValueMap {
+        val defaults = valueMapOf()
+        executionTuning()?.let { defaults["execution"] = it }
+        val merged = deepMergeValues(defaults, config)
+        fillRouteExecutionDefaults(merged)
+        applySelectedCpus(merged)
+        return merged
+    }
+
+    private fun executionTuning(): ValueMap? =
+        assetLoader.load("$PROFILES_DIR/execution-tuning.conf")
+            .asValueMap()?.get("execution").asValueMap()
+
+    private fun executionRoutePreset(route: String): ValueMap? =
+        assetLoader.load("$PROFILES_DIR/execution-${route.replace('_', '-')}.conf")
+            .asValueMap()?.get("execution").asValueMap()
+            ?.get("routes").asValueMap()?.get(route).asValueMap()
+
+    private fun fillRouteExecutionDefaults(profile: ValueMap) {
+        val routes = profile.mutableChild("execution").mutableChild("routes")
+        for (route in RouteKind.entries) {
+            val preset = executionRoutePreset(route.token) ?: continue
+            val existing = routes[route.token].asValueMap()
+            if (existing == null) {
+                routes[route.token] = preset
+            } else {
+                for ((key, value) in preset) {
+                    if (!existing.containsKey(key)) existing[key] = value
+                }
+            }
+        }
+    }
+
+    private fun applySelectedCpus(profile: ValueMap) {
+        val pair = _settings.value.cpuPair
+        profile.mutableChild("execution")["selected_cpus"] = valueMapOf(
+            "main" to pair.primary.toLong(),
+            "consumer" to pair.consumer.toLong(),
         )
     }
 
@@ -304,5 +359,6 @@ class AndroidGhostlockRepository(
 
     companion object {
         private const val TAG = "GhostlockRepo"
+        private const val PROFILES_DIR = "kernel_profiles"
     }
 }
