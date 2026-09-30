@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Build the GhostLock kernel-exploit payload (arm64 PIE) into a jniLib.
-# Compiles the vendored core with the NDK clang directly (no `make` needed).
-# Called by gradle preBuild (via bash) and by build_local.sh.
+# Compiles the vendored C++ core (YuKongA/ghostlock-app) with the NDK clang++
+# directly (no `make` needed). Called by gradle preBuild (via bash) and by build_local.sh.
 set -euo pipefail
 
-NDK_VERSION="29.0.14206865"
+NDK_VERSION="${NDK_VERSION:-29.0.14206865}"
 API="35"
 HERE="$(cd "$(dirname "$0")" && pwd)"     # manager/ghostlock/
 ROOT="$(cd "$HERE/.." && pwd)"           # manager/
@@ -27,20 +27,52 @@ fi
 : "${NDK_ROOT:?NDK not found — set ANDROID_HOME / ANDROID_NDK_HOME or sdk.dir in local.properties}"
 
 case "$(uname -s)" in
-  *MINGW*|*MSYS*|*CYGWIN*) HOST="windows-x86_64"; CLANG="clang.exe" ;;
-  *)                       HOST="linux-x86_64";  CLANG="clang" ;;
+  *MINGW*|*MSYS*|*CYGWIN*) HOST="windows-x86_64"; CLANGXX="clang++.exe" ;;
+  *)                       HOST="linux-x86_64";  CLANGXX="clang++" ;;
 esac
-CLANG_PATH="$NDK_ROOT/toolchains/llvm/prebuilt/$HOST/bin/$CLANG"
-[ -x "$CLANG_PATH" ] || { echo "clang not found: $CLANG_PATH"; exit 1; }
+CLANGXX_PATH="$NDK_ROOT/toolchains/llvm/prebuilt/$HOST/bin/$CLANGXX"
+[ -x "$CLANGXX_PATH" ] || { echo "clang++ not found: $CLANGXX_PATH"; exit 1; }
 
 cd "$HERE"
 mkdir -p "$OUT"
+
+# Production translation units from YuKongA/ghostlock-app (src/Makefile CXX_SRCS).
+# Host-only tests under src/core/tests/ are not part of the payload.
+CXX_SRCS=(
+  src/core/main.cpp
+  src/core/attack/ops.cpp
+  src/core/profile/entry.cpp
+  src/core/memory/address_space.cpp
+  src/core/memory/heap_context.cpp
+  src/core/race/pi_race.cpp
+  src/core/route/route_controller.cpp
+  src/core/route/route_middleware.cpp
+  src/core/race/threads.cpp
+  src/core/route/tcp_zerocopy_route.cpp
+  src/core/route/select_stack_route.cpp
+  src/core/route/multicast_waiter_route.cpp
+  src/core/memory/payload_builder.cpp
+  src/core/session/runtime_config.cpp
+  src/core/profile/binary.cpp
+  src/core/support/util.cpp
+  src/core/session/exploit_session.cpp
+  src/core/session/root_child_frontend.cpp
+  src/core/session/backend/cve_2026_43499_backend.cpp
+  src/core/session/handoff_probe.cpp
+  src/core/session/victim_process.cpp
+  src/core/session/victim_context.cpp
+  src/core/support/native_resource.cpp
+  src/core/support/run_state.cpp
+)
+
 echo "==> Building GhostLock payload (arm64, API $API) @ $NDK_ROOT"
-"$CLANG_PATH" --target="aarch64-linux-android$API" \
-  -O2 -flto -Wall -Wno-unused-parameter -Wno-sign-compare -Wno-unused-function \
-  -Isrc/core -Isrc/kernels -DTARGET_CONFIG_H=\"target.h\" \
-  -fPIE -pie -pthread -flto \
-  src/core/main.c src/core/offsets_json.c src/core/util.c src/core/fops.c \
+"$CLANGXX_PATH" --target="aarch64-linux-android$API" \
+  -O2 -flto -Wall -Wextra -Wconversion -Wsign-conversion \
+  -Wno-unused-parameter -Wno-sign-compare -Wno-unused-function \
+  -Isrc/core -DTARGET_CONFIG_H=\"kernel/target.h\" \
+  -std=c++23 -fno-rtti \
+  -fPIE -pie -pthread -flto -static-libstdc++ \
+  "${CXX_SRCS[@]}" \
   -o "$OUT/libghostlock.so"
 
 echo "==> Payload ready: $OUT/libghostlock.so"

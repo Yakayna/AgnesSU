@@ -2,7 +2,6 @@ package com.agnessu.yakayn.data.ghostlock
 
 import android.content.Context
 import com.agnessu.yakayn.profile.HoconSupport
-import com.agnessu.yakayn.profile.ValueModel
 import java.io.IOException
 
 class AssetConfigLoader(private val context: Context) {

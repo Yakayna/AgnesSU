@@ -1,7 +1,7 @@
 package com.agnessu.yakayn.data.ghostlock
 
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
-import com.agnessu.yakayn.profile.NativeProfile
+import com.agnessu.yakayn.profile.NativeProfileDocument
 import com.agnessu.yakayn.profile.route.RouteKind
 
 data class KernelSnapshot(
@@ -23,7 +23,7 @@ data class ProfileConfig(
     val displayName: String,
     val source: ProfileSource,
     val routeKind: RouteKind,
-    val document: NativeProfile.NativeProfileDocument?,
+    val document: NativeProfileDocument?,
     val errors: List<String>,
 ) {
     val isValid: Boolean get() = document != null && errors.isEmpty()

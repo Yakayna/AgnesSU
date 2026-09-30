@@ -6,9 +6,8 @@ import android.system.Os
 import android.util.Log
 import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
-import com.agnessu.yakayn.profile.NativeProfile
+import com.agnessu.yakayn.profile.NativeProfileDocument
 import com.agnessu.yakayn.profile.ProfileResolver
-import com.agnessu.yakayn.profile.ValueModel
 import com.agnessu.yakayn.profile.route.RouteKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +79,7 @@ class AndroidGhostlockRepository(
                 id = p.id,
                 displayName = p.displayName,
                 source = ProfileSource.BUILTIN,
-                matched = matchGlob(p.kernelGlob, kernel.release),
+                matched = catalog.matches(kernel.release, p),
             )
         }
         val userProfiles = userStore.list().map { f ->
@@ -260,14 +259,21 @@ class AndroidGhostlockRepository(
         source: ProfileSource,
         config: Map<String, Any?>,
     ): ProfileConfig {
-        val routeKindStr = config["route"] as? String ?: "tcp_zerocopy"
-        val routeKind = RouteKind.entries.firstOrNull {
-            it.token.equals(routeKindStr, ignoreCase = true)
-        } ?: RouteKind.TCP_ZEROCOPY
+        val release = config["release"] as? String ?: displayName
+        val route = routeToken(config) ?: RouteKind.TCP_ZEROCOPY.token
+        val fallbackTo = (config["fallback"] as? Map<*, *>)?.get("to") as? String
 
-        val errors = ProfileResolver.validateMerged(config)
+        val routeKind = RouteKind.fromToken(route) ?: RouteKind.TCP_ZEROCOPY
+        val errors = ProfileResolver.validateMerged(config, route, fallbackTo)
         val document = if (errors.isEmpty()) {
-            runCatching { NativeProfile.NativeProfileDocument.from(config, routeKind) }.getOrNull()
+            runCatching {
+                NativeProfileDocument.from(
+                    release = release,
+                    route = route,
+                    fallbackTo = fallbackTo,
+                    value = { path -> ProfileResolver.nativeValue(config, route, fallbackTo, path) },
+                )
+            }.getOrNull()
         } else null
 
         return ProfileConfig(
@@ -280,8 +286,10 @@ class AndroidGhostlockRepository(
         )
     }
 
-    private fun matchGlob(pattern: String, text: String): Boolean =
-        BuiltinProfileCatalog.matchGlob(pattern, text)
+    private fun routeToken(config: Map<String, Any?>): String? {
+        val routeObj = config["route"] as? Map<*, *> ?: return null
+        return RouteKind.entries.firstOrNull { routeObj.containsKey(it.token) }?.token
+    }
 
     private fun readSysfs(path: String): String? = runCatching {
         File(path).readText().trim().ifBlank { null }

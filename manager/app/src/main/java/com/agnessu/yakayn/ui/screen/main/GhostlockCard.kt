@@ -13,7 +13,7 @@ import com.agnessu.yakayn.ui.navigation.Route
 
 /**
  * Home-screen entry point into the dedicated GhostLock page. The page itself
- * (kernel exploit + [Beta] Iqoo/Vivo payloads) lives in GhostlockScreen.
+ * (kernel exploit + profile-based payloads) lives in GhostlockScreen.
  */
 @Composable
 fun GhostlockButton(

@@ -207,6 +207,10 @@ val buildGhostlockPayload = tasks.register<Exec>("buildGhostlockPayload") {
         environment("ANDROID_HOME", sdkDir)
     }
 
+    // Pin the NDK version to the same value AGP uses for the app's CMake build,
+    // so the payload never drifts from the toolchain the rest of the app links against.
+    environment("NDK_VERSION", androidCompileNdkVersion)
+
     outputs.upToDateWhen { false }
 }
 

@@ -131,7 +131,7 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
-        <!-- Shizuku provider (shell-domain exec bridge for the Iqoo/Vivo path) -->
+        <!-- Shizuku provider (shell-domain exec bridge for the GhostLock exploit path) -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
             android:authorities="${applicationId}.shizuku"
