@@ -6,8 +6,10 @@
 #include "kernel/offset.h"
 
 namespace ghostlock::kernel {
-    inline constexpr unsigned PAGE_SHIFT = 12;
-    inline constexpr unsigned long PAGE_SIZE = 1UL << PAGE_SHIFT;
+    /* bionic's <bits/page_size.h> defines PAGE_SIZE (and glibc PAGE_SHIFT) as
+     * macros, so these host-page constants use a suffix instead of bare names. */
+    inline constexpr unsigned PAGE_SHIFT_BITS = 12;
+    inline constexpr unsigned long PAGE_SIZE_BYTES = 1UL << PAGE_SHIFT_BITS;
     inline constexpr unsigned KS_PAGE_SIZE = 4096;
     inline constexpr unsigned long long KS_PAGE_MASK = 0xfffULL;
 
@@ -17,7 +19,7 @@ namespace ghostlock::kernel {
     inline constexpr unsigned MM_ORDER = 3;
     inline constexpr unsigned MM_PARTIALS = 5;
 
-    inline constexpr unsigned long ORDER3_SIZE = PAGE_SIZE << MM_ORDER;
+    inline constexpr unsigned long ORDER3_SIZE = PAGE_SIZE_BYTES << MM_ORDER;
     inline constexpr unsigned long SKB_SEND_SIZE = ORDER3_SIZE * 2;
     inline constexpr unsigned SKB_RECLAIM_SENDS = 4;
     inline constexpr unsigned long FOPS_TABLE_OFF = FOPS_OFF;
