@@ -21,12 +21,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -63,7 +66,7 @@ import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GhostlockScreen() {
     val context = LocalContext.current
@@ -250,6 +253,7 @@ fun GhostlockScreen() {
             // --- Execution settings ---
             GhostlockSectionTitle(stringResource(R.string.ghostlock_section_settings))
 
+            val visibleCpuPairs = cpuPairs.take(20)
             ExposedDropdownMenuBox(
                 expanded = cpuDropdownExpanded,
                 onExpandedChange = { cpuDropdownExpanded = it },
@@ -260,22 +264,25 @@ fun GhostlockScreen() {
                     readOnly = true,
                     label = { Text(stringResource(R.string.ghostlock_cpu_pair)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cpuDropdownExpanded) },
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                ExposedDropdownMenu(
+                DropdownMenuPopup(
                     expanded = cpuDropdownExpanded,
                     onDismissRequest = { cpuDropdownExpanded = false },
                 ) {
-                    cpuPairs.take(20).forEach { pair ->
-                        DropdownMenuItem(
-                            text = { Text(pair.toString()) },
-                            onClick = {
-                                repository.updateSettings { copy(cpuPair = pair) }
-                                cpuDropdownExpanded = false
-                            },
-                        )
+                    DropdownMenuGroup(
+                        shapes = MenuDefaults.groupShapes()
+                    ) {
+                        visibleCpuPairs.forEachIndexed { index, pair ->
+                            DropdownMenuItem(
+                                shape = MenuDefaults.itemShape(index, visibleCpuPairs.size).shape,
+                                text = { Text(pair.toString()) },
+                                onClick = {
+                                    repository.updateSettings { copy(cpuPair = pair) }
+                                    cpuDropdownExpanded = false
+                                },
+                            )
+                        }
                     }
                 }
             }
