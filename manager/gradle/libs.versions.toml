@@ -21,6 +21,7 @@ hiddenapibypass = "6.1"
 parcelablelist = "2.0.1"
 libsu = "6.0.0"
 shizuku = "13.1.5"
+commons-compress = "1.28.0"
 apksign = "1.4"
 compose-material3 = "1.5.0-alpha28"
 compose-ui = "1.11.2"
@@ -87,6 +88,7 @@ dev-rikka-shizuku-provider = { module = "dev.rikka.shizuku:provider", version.re
 
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 typesafe-config = { module = "com.typesafe:config", version = "1.4.3" }
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "core-splashscreen" }
 io-coil-kt-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil-compose" }
 ucrop = { module = "com.github.yalantis:ucrop", version.ref = "ucrop" }

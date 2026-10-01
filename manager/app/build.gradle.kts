@@ -214,8 +214,32 @@ val buildGhostlockPayload = tasks.register<Exec>("buildGhostlockPayload") {
     outputs.upToDateWhen { false }
 }
 
+// GhostLock: compile the vendored Rust offset extractor (tools/extract_rs) into
+// libextract.so (aarch64). build_extract.sh runs cargo with the NDK clang/linker
+// and skips cleanly when no Rust toolchain is installed, so a manager build on a
+// machine or CI job without cargo still succeeds (extraction just reports
+// "missing native binary" at runtime).
+val buildGhostlockExtract = tasks.register<Exec>("buildGhostlockExtract") {
+    group = "ghostlock"
+    description = "Compile the GhostLock offset extractor into app/src/main/jniLibs/arm64-v8a/libextract.so"
+    commandLine("bash", rootProject.file("ghostlock/build_extract.sh").absolutePath)
+
+    val localProps = Properties()
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use {
+        localProps.load(it)
+    }
+    val sdkDir = localProps.getProperty("sdk.dir") ?: System.getenv("ANDROID_HOME")
+    if (!sdkDir.isNullOrBlank()) {
+        environment("ANDROID_HOME", sdkDir)
+    }
+    environment("NDK_VERSION", androidCompileNdkVersion)
+
+    outputs.upToDateWhen { false }
+}
+
 tasks.named("preBuild").configure {
     dependsOn(buildGhostlockPayload)
+    dependsOn(buildGhostlockExtract)
 }
 
 dependencies {
@@ -230,6 +254,7 @@ dependencies {
     implementation(libs.koin.compose.viewmodel)
 
     implementation(libs.gson)
+    implementation(libs.commons.compress)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.profileinstaller)

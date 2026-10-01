@@ -267,7 +267,7 @@ val repositoryModule = module {
     single { ShizukuExploitRunner() }
     single { AssetConfigLoader(androidApplication()) }
     single { BuiltinProfileCatalog(get()) }
-    single { UserProfileStore(androidApplication()) }
+    single { UserProfileStore(androidApplication(), get()) }
     single {
         AndroidGhostlockRepository(
             context = androidApplication(),

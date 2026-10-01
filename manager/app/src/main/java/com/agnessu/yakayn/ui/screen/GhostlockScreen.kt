@@ -1,5 +1,6 @@
 package com.agnessu.yakayn.ui.screen
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -58,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.data.ghostlock.AndroidGhostlockRepository
 import com.agnessu.yakayn.data.ghostlock.ExploitState
+import com.agnessu.yakayn.data.ghostlock.ParseResult
 import com.agnessu.yakayn.data.ghostlock.ProfileSource
 import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
@@ -83,11 +85,19 @@ fun GhostlockScreen() {
     var showLog by remember { mutableStateOf(false) }
     val logLines = remember { mutableStateListOf<String>() }
     var cpuDropdownExpanded by remember { mutableStateOf(false) }
+    var otaUrl by remember { mutableStateOf("") }
+    var bootUri by remember { mutableStateOf<Uri?>(null) }
+    var xblUri by remember { mutableStateOf<Uri?>(null) }
+    var uefiUri by remember { mutableStateOf<Uri?>(null) }
+    var extracting by remember { mutableStateOf(false) }
+    var pendingOverwrite by remember { mutableStateOf(false) }
+    val extractLog = remember { mutableStateListOf<String>() }
 
     val kernel = remember { repository.kernel }
-    val profile = remember { repository.resolveActiveProfile() }
-    val profiles = remember { repository.allAvailableProfiles() }
-    val matchedBuiltin = remember { repository.matchBuiltinProfile() }
+    val selectedProfileId by repository.selectedProfileId.collectAsState()
+    val profile = remember(selectedProfileId) { repository.resolveActiveProfile() }
+    val exactBuiltin = remember { repository.matchBuiltinProfileExact() }
+    val userProfiles = remember(selectedProfileId) { repository.userProfiles() }
     val cpuPairs = remember { repository.availableCpuPairs() }
 
     val busy = exploitState is ExploitState.Running || exploitState is ExploitState.Preparing
@@ -102,6 +112,68 @@ fun GhostlockScreen() {
                 Toast.makeText(context, R.string.ghostlock_profile_imported, Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(context, R.string.ghostlock_import_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val extractBootPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) bootUri = uri }
+    val extractXblPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) xblUri = uri }
+    val extractUefiPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri -> if (uri != null) uefiUri = uri }
+
+    fun startExtract(overwrite: Boolean) {
+        scope.launch {
+            extracting = true
+            pendingOverwrite = false
+            extractLog.clear()
+            val result: ParseResult? = try {
+                val xblPath = xblUri?.let { repository.cacheDocument(it, "xbl_config_extract.img") }
+                val uefiPath = uefiUri?.let { repository.cacheDocument(it, "uefi_extract.bin") }
+                val input = when {
+                    otaUrl.isNotBlank() -> otaUrl.trim()
+                    bootUri != null -> repository.cacheDocument(bootUri!!, "boot_extract.img")
+                    else -> null
+                }
+                if (input == null) {
+                    extractLog.add(context.getString(R.string.ghostlock_extract_no_input))
+                    null
+                } else {
+                    repository.parseSource(input, xblPath, uefiPath, overwrite) { line ->
+                        extractLog.add(line)
+                    }
+                }
+            } catch (e: Exception) {
+                extractLog.add("error: ${e.message}")
+                null
+            } finally {
+                extracting = false
+            }
+
+            when (result) {
+                is ParseResult.Parsed -> {
+                    result.documentName?.let { repository.selectProfile(it) }
+                    Toast.makeText(context, R.string.ghostlock_extract_success, Toast.LENGTH_LONG).show()
+                }
+
+                is ParseResult.RequiresOverwrite -> {
+                    pendingOverwrite = true
+                    Toast.makeText(context, R.string.ghostlock_extract_overwrite, Toast.LENGTH_LONG).show()
+                }
+
+                is ParseResult.AlreadyPresent -> {
+                    Toast.makeText(context, R.string.ghostlock_extract_already, Toast.LENGTH_SHORT).show()
+                }
+
+                is ParseResult.Failed -> {
+                    Toast.makeText(context, R.string.ghostlock_extract_failed, Toast.LENGTH_LONG).show()
+                }
+
+                null -> Unit
             }
         }
     }
@@ -183,68 +255,65 @@ fun GhostlockScreen() {
             // --- Profile ---
             GhostlockSectionTitle(stringResource(R.string.ghostlock_section_profile))
 
-            if (profile != null) {
-                Text(
-                    text = "${profile.displayName} (${profile.source.name.lowercase()})",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (profile.isValid) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error,
-                )
-                if (!profile.isValid) {
-                    profile.errors.forEach { err ->
-                        Text(
-                            text = err,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
+            when {
+                profile != null && profile.source == ProfileSource.USER_IMPORTED && profile.isValid -> {
+                    Text(
+                        text = profile.displayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = stringResource(R.string.ghostlock_profile_user_active),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            } else {
-                Text(
-                    text = stringResource(R.string.ghostlock_no_profile),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
+
+                exactBuiltin != null -> {
+                    Text(
+                        text = stringResource(R.string.ghostlock_profile_supported),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "${stringResource(R.string.ghostlock_profile_builtin)} · ${exactBuiltin.displayName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                else -> {
+                    Text(
+                        text = stringResource(R.string.ghostlock_no_exact_profile),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.ghostlock_no_exact_profile_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
-            if (matchedBuiltin != null) {
-                Text(
-                    text = stringResource(R.string.ghostlock_profile_supported),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            } else if (profiles.size > 1) {
-                profiles.forEach { summary ->
+            if (exactBuiltin == null && userProfiles.isNotEmpty()) {
+                userProfiles.forEach { userProfile ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { repository.selectProfile(summary.id) }
+                            .clickable { repository.selectProfile(userProfile.id) }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(
-                            selected = summary.id == (repository.selectedProfileId.value ?: profile?.profileId),
-                            onClick = { repository.selectProfile(summary.id) },
+                            selected = userProfile.id == selectedProfileId,
+                            onClick = { repository.selectProfile(userProfile.id) },
                         )
                         Spacer(Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = summary.displayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            if (summary.matched) {
-                                Text(
-                                    text = stringResource(R.string.ghostlock_profile_matched),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                            Text(
-                                text = summary.source.name.lowercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        Text(
+                            text = userProfile.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }
@@ -255,6 +324,96 @@ fun GhostlockScreen() {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.ghostlock_import_profile))
+            }
+
+            // --- Offset extraction ---
+            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_extract))
+
+            OutlinedTextField(
+                value = otaUrl,
+                onValueChange = { otaUrl = it },
+                label = { Text(stringResource(R.string.ghostlock_extract_ota_url)) },
+                singleLine = true,
+                enabled = !extracting,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            OutlinedButton(
+                onClick = { extractBootPicker.launch(arrayOf("*/*")) },
+                enabled = !extracting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    bootUri?.let {
+                        stringResource(R.string.ghostlock_extract_boot_picked, it.lastPathSegment ?: "")
+                    } ?: stringResource(R.string.ghostlock_extract_pick_boot),
+                )
+            }
+
+            OutlinedButton(
+                onClick = { extractXblPicker.launch(arrayOf("*/*")) },
+                enabled = !extracting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    xblUri?.let {
+                        stringResource(R.string.ghostlock_extract_xbl_picked, it.lastPathSegment ?: "")
+                    } ?: stringResource(R.string.ghostlock_extract_pick_xbl),
+                )
+            }
+
+            OutlinedButton(
+                onClick = { extractUefiPicker.launch(arrayOf("*/*")) },
+                enabled = !extracting,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    uefiUri?.let {
+                        stringResource(R.string.ghostlock_extract_uefi_picked, it.lastPathSegment ?: "")
+                    } ?: stringResource(R.string.ghostlock_extract_pick_uefi),
+                )
+            }
+
+            if (pendingOverwrite) {
+                Text(
+                    text = stringResource(R.string.ghostlock_extract_overwrite),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { startExtract(overwrite = true) },
+                        enabled = !extracting,
+                    ) {
+                        Text(stringResource(R.string.ghostlock_extract_overwrite_confirm))
+                    }
+                    TextButton(onClick = { pendingOverwrite = false }) {
+                        Text(stringResource(R.string.ghostlock_extract_cancel))
+                    }
+                }
+            }
+
+            Button(
+                onClick = { startExtract(overwrite = false) },
+                enabled = !extracting && !busy,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (extracting) stringResource(R.string.ghostlock_extract_running)
+                    else stringResource(R.string.ghostlock_extract_run),
+                )
+            }
+
+            if (extractLog.isNotEmpty()) {
+                Text(
+                    text = extractLog.joinToString("\n"),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                )
             }
 
             // --- Execution settings ---

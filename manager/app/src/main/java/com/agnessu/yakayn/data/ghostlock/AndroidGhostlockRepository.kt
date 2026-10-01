@@ -1,26 +1,38 @@
 package com.agnessu.yakayn.data.ghostlock
 
+import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.provider.MediaStore
 import android.system.Os
 import android.util.Log
+import com.agnessu.yakayn.data.ghostlock.ota.OtaPayloadExtractor
 import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
+import com.agnessu.yakayn.profile.HoconSupport
 import com.agnessu.yakayn.profile.NativeProfileDocument
 import com.agnessu.yakayn.profile.ProfileResolver
+import com.agnessu.yakayn.profile.ValueList
 import com.agnessu.yakayn.profile.ValueMap
+import com.agnessu.yakayn.profile.asValueList
 import com.agnessu.yakayn.profile.asValueMap
 import com.agnessu.yakayn.profile.deepMergeValues
+import com.agnessu.yakayn.profile.getLongAt
 import com.agnessu.yakayn.profile.mutableChild
 import com.agnessu.yakayn.profile.route.RouteKind
 import com.agnessu.yakayn.profile.valueMapOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 class AndroidGhostlockRepository(
     private val context: Context,
@@ -47,6 +59,9 @@ class AndroidGhostlockRepository(
     private val _selectedProfileId = MutableStateFlow<String?>(null)
     val selectedProfileId: StateFlow<String?> = _selectedProfileId.asStateFlow()
 
+    private var pendingParsedDocument: PendingParsedDocument? = null
+    private val processes = mutableSetOf<Process>()
+
     val kernel: KernelSnapshot by lazy {
         KernelSnapshot(
             release = System.getProperty("os.version", "").orEmpty(),
@@ -63,6 +78,9 @@ class AndroidGhostlockRepository(
     fun isSupportedArch(): Boolean = kernel.arch == "aarch64"
 
     fun matchBuiltinProfile(): KernelProfile? = catalog.match(kernel.release)
+
+    /** Exact kernel-release match; used by the UI to show a clean "supported" state. */
+    fun matchBuiltinProfileExact(): KernelProfile? = catalog.exactMatch(kernel.release)
 
     fun resolveActiveProfile(): ProfileConfig? {
         val selectedId = _selectedProfileId.value
@@ -123,6 +141,281 @@ class AndroidGhostlockRepository(
     fun deleteProfile(id: String): Boolean = userStore.delete(id)
 
     fun userProfiles(): List<UserProfileFile> = userStore.list()
+
+    // ---- offset extraction (boot/xbl payload dumper -> flattened .conf) ----
+
+    suspend fun cacheDocument(uri: Uri, fileName: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val target = File(context.filesDir, fileName)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use(input::copyTo)
+            } ?: return@withContext null
+            target.absolutePath
+        } catch (e: Exception) {
+            Log.e(TAG, "cacheDocument failed", e)
+            null
+        }
+    }
+
+    suspend fun readDocument(uri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        } catch (e: Exception) {
+            Log.e(TAG, "readDocument failed", e)
+            null
+        }
+    }
+
+    /**
+     * Runs the bundled Rust extractor (`libextract.so`) against a boot image
+     * (local path or OTA URL) plus optional xbl_config / uefi sidecars, then
+     * stores the flattened HOCON profile so it takes effect like any imported
+     * document. A missing `kernel_phys_load` is reported so the UI can suggest
+     * the xbl sidecar.
+     */
+    suspend fun parseSource(
+        input: String,
+        xblPath: String?,
+        uefiPath: String?,
+        overwrite: Boolean,
+        onLog: (String) -> Unit,
+    ): ParseResult = withContext(Dispatchers.IO) {
+        val parsedFile = File(context.filesDir, "offsets_parse.tmp")
+        var tempBootFile: File? = null
+        var tempXblFile: File? = null
+        try {
+            if (overwrite) {
+                val pending = pendingParsedDocument
+                if (pending != null) {
+                    pendingParsedDocument = null
+                    dropReplacedDocuments(pending.releases)
+                    val id = userStore.save(pending.name, pending.text)
+                    onLog("imported offsets for ${pending.releases.joinToString()}")
+                    return@withContext ParseResult.Parsed(pending.releases, pending.missing, id)
+                }
+            }
+            val binary = File(context.applicationInfo.nativeLibraryDir, ExtractBinaryName)
+            if (!binary.isFile) {
+                return@withContext ParseResult.Failed(1, "missing native binary: ${binary.absolutePath}")
+            }
+
+            val isRemoteUrl = input.startsWith("http://", ignoreCase = true) ||
+                input.startsWith("https://", ignoreCase = true)
+            val effectiveInput: String
+            val effectiveXblPath: String?
+            if (isRemoteUrl) {
+                onLog("downloading + unpacking OTA: $input")
+                val extracted = OtaPayloadExtractor.extractPartitions(input, context.filesDir, onLog)
+                tempBootFile = extracted.bootFile
+                tempXblFile = extracted.xblConfigFile
+                effectiveInput = extracted.bootFile.absolutePath
+                effectiveXblPath = extracted.xblConfigFile?.absolutePath ?: xblPath
+            } else {
+                effectiveInput = input
+                effectiveXblPath = xblPath
+            }
+
+            parsedFile.delete()
+            val args = buildList {
+                add(effectiveInput)
+                if (effectiveXblPath != null) {
+                    add("--xbl-config")
+                    add(effectiveXblPath)
+                }
+                if (uefiPath != null) {
+                    add("--uefi")
+                    add(uefiPath)
+                }
+                addAll(
+                    listOf(
+                        "--format", "conf",
+                        "--out", parsedFile.absolutePath,
+                        "--work-dir", context.filesDir.absolutePath,
+                    ),
+                )
+            }
+            onLog("extract: $effectiveInput")
+            val code = runProcess(
+                ProcessBuilder(listOf(binary.absolutePath) + args)
+                    .directory(context.filesDir)
+                    .redirectErrorStream(true)
+                    .apply {
+                        environment()["GHOSTLOCK_HOME"] = context.filesDir.absolutePath
+                        environment()["TMPDIR"] = context.filesDir.absolutePath
+                        environment()["HOME"] = context.filesDir.absolutePath
+                    },
+                onLog = onLog,
+                timeoutSeconds = 1800,
+            )
+            onLog("extract exit code=$code")
+            if (code != 0 || !parsedFile.isFile) return@withContext ParseResult.Failed(code)
+            val document = parsedFile.readText()
+            val fresh = parseEntries(document) ?: return@withContext ParseResult.Failed(code, "invalid extractor output")
+            val filtered = fresh.mapNotNull { it.asValueMap() }
+                .filter { (it["release"] as? String).orEmpty().isNotEmpty() }
+            if (filtered.isEmpty()) return@withContext ParseResult.AlreadyPresent
+            val releases = freshReleases(filtered)
+            val missing = missingSidecarFields(filtered)
+            val overlaps = releases.filter { userStore.containsRelease(it) }
+            val name = parsedDocumentName(releases)
+            if (!overwrite && overlaps.isNotEmpty()) {
+                pendingParsedDocument = PendingParsedDocument(name, document, releases, missing)
+                return@withContext ParseResult.RequiresOverwrite(overlaps, missing)
+            }
+            dropReplacedDocuments(releases)
+            val id = userStore.save(name, document)
+            onLog("imported offsets for ${releases.joinToString()}")
+            ParseResult.Parsed(releases, missing, id)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            ParseResult.Failed(1, error.message)
+        } finally {
+            parsedFile.delete()
+            tempBootFile?.delete()
+            tempXblFile?.delete()
+        }
+    }
+
+    suspend fun importOffsets(documents: Map<String, String>): OffsetImportResult =
+        mergeImported(documents, overwrite = false)
+
+    suspend fun confirmImport(documents: Map<String, String>): OffsetImportResult =
+        mergeImported(documents, overwrite = true)
+
+    private fun mergeImported(documents: Map<String, String>, overwrite: Boolean): OffsetImportResult {
+        return try {
+            val imported = parseImportDocuments(documents)
+                ?: return OffsetImportResult.Failed("not a valid profile document")
+            val fresh = imported.filter { (it["release"] as? String).orEmpty().isNotEmpty() }
+            if (fresh.isEmpty()) return OffsetImportResult.AlreadyPresent
+
+            val releases = freshReleases(fresh)
+            val overlaps = releases.filter { userStore.containsRelease(it) }
+            if (!overwrite && overlaps.isNotEmpty()) {
+                return OffsetImportResult.RequiresOverwrite(overlaps)
+            }
+            if (overwrite) dropReplacedDocuments(releases)
+            for ((name, text) in documents) userStore.save(name, text)
+            OffsetImportResult.Imported(releases)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: UserProfileStore.MissingIncludes) {
+            OffsetImportResult.MissingIncludes(error.files)
+        } catch (error: Exception) {
+            OffsetImportResult.Failed(error.message ?: "import failed")
+        }
+    }
+
+    private fun dropReplacedDocuments(releases: List<String>) {
+        val incoming = releases.toSet()
+        userStore.list().forEach { stored ->
+            if (stored.releases.isNotEmpty() && stored.releases.all { it in incoming }) {
+                userStore.delete(stored.id)
+            }
+        }
+    }
+
+    private fun parseImportDocuments(documents: Map<String, String>): List<ValueMap>? {
+        val entries = mutableListOf<ValueMap>()
+        documents.forEach { (_, text) ->
+            entries += userStore.parseEntries(text, extraDocuments = documents)
+        }
+        return entries.takeIf { it.isNotEmpty() }
+    }
+
+    suspend fun publishOffsets(candidate: OffsetCandidate): String? = withContext(Dispatchers.IO) {
+        try {
+            val safeRelease = candidate.release.replace(Regex("[^A-Za-z0-9._-]"), "_")
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, "offsets-$safeRelease.conf")
+                put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: return@withContext null
+            context.contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(candidate.document.toByteArray(StandardCharsets.UTF_8))
+            } ?: return@withContext null
+            uri.toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "publishOffsets failed", e)
+            null
+        }
+    }
+
+    private fun parseEntries(text: String): ValueList? {
+        if (text.isBlank()) return null
+        return try {
+            when (val value = HoconSupport.parseValue(text)) {
+                is List<*> -> value.asValueList()
+                is Map<*, *> -> ValueList().apply { value.asValueMap()?.let(::add) }
+                else -> null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private class PendingParsedDocument(
+        val name: String,
+        val text: String,
+        val releases: List<String>,
+        val missing: Set<String>,
+    )
+
+    /** Fields a parsed profile still lacks that only an xbl_config FDT / uefi map can fill. */
+    private fun missingSidecarFields(entries: List<ValueMap>): Set<String> =
+        if (entries.isNotEmpty() && entries.all { it.getLongAt("kernel_phys_load") == null }) {
+            setOf("kernel_phys_load")
+        } else {
+            emptySet()
+        }
+
+    private fun parsedDocumentName(releases: List<String>): String {
+        val stem = releases.firstOrNull().orEmpty()
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+            .ifEmpty { "parsed" }
+        return "$stem.conf"
+    }
+
+    private fun freshReleases(entries: List<*>): List<String> =
+        entries.mapNotNull { (it.asValueMap()?.get("release") as? String) }.distinct()
+
+    private suspend fun runProcess(
+        builder: ProcessBuilder,
+        onLog: (String) -> Unit = {},
+        timeoutSeconds: Long = 300,
+    ): Int = runInterruptible {
+        val process = builder.start()
+        synchronized(processes) { processes += process }
+        val reader = Thread {
+            try {
+                process.inputStream.bufferedReader(StandardCharsets.UTF_8).useLines { lines ->
+                    lines.forEach(onLog)
+                }
+            } catch (_: IOException) {
+            }
+        }.apply {
+            name = "extract-output-reader"
+            isDaemon = true
+        }
+        try {
+            reader.start()
+            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroy()
+                if (!process.waitFor(5, TimeUnit.SECONDS)) process.destroyForcibly()
+            }
+            reader.join(3000)
+            if (finished) process.exitValue() else -1
+        } finally {
+            if (process.isAlive) process.destroyForcibly()
+            reader.interrupt()
+            runCatching { process.inputStream.close() }
+            reader.join(3000)
+            synchronized(processes) { processes -= process }
+        }
+    }
 
     suspend fun runExploit(onLog: (String) -> Unit): Result<Int> = withContext(Dispatchers.IO) {
         try {
@@ -360,5 +653,6 @@ class AndroidGhostlockRepository(
     companion object {
         private const val TAG = "GhostlockRepo"
         private const val PROFILES_DIR = "kernel_profiles"
+        private const val ExtractBinaryName = "libextract.so"
     }
 }

@@ -1,0 +1,6 @@
+# Keep cargo's artifacts under manager/build/extract (shared with the Gradle
+# build). Relative paths in a cargo config file resolve against this file's
+# directory (extract_rs/.cargo/), so ../../../build/extract is <manager>/build/extract.
+# build_extract.sh overrides this via CARGO_TARGET_DIR to the same location.
+[build]
+target-dir = "../../../build/extract"

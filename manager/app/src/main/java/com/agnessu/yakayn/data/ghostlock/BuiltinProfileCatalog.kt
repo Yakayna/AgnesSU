@@ -59,6 +59,10 @@ class BuiltinProfileCatalog(private val loader: AssetConfigLoader) {
     fun matches(kernelRelease: String, profile: KernelProfile): Boolean =
         profile.kernelGlob == kernelRelease || templateName(kernelRelease) == profile.kernelGlob
 
+    /** Exact kernel-release match only; no `X.Y-template` fallback. */
+    fun exactMatch(kernelRelease: String): KernelProfile? =
+        loadIndex().firstOrNull { it.kernelGlob == kernelRelease }
+
     fun allProfiles(): List<KernelProfile> = loadIndex()
 
     companion object {
