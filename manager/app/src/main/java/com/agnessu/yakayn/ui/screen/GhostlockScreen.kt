@@ -5,7 +5,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -23,11 +26,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuGroup
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
@@ -35,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDropdownMenuItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,7 +53,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -252,6 +257,110 @@ fun GhostlockScreen() {
                 )
             }
 
+            // --- Execution settings ---
+            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_settings))
+
+            val visibleCpuPairs = cpuPairs.take(20)
+            var cpuTouchPoint by remember { mutableStateOf(Offset.Zero) }
+            val (cpuOffsetX, cpuOffsetY) = with(LocalDensity.current) {
+                cpuTouchPoint.x.toDp() to cpuTouchPoint.y.toDp()
+            }
+            Box {
+                OutlinedTextField(
+                    value = settings.cpuPair.toString(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.ghostlock_cpu_pair)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cpuDropdownExpanded) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .pointerInput(Unit) {
+                            detectTapGestures { offset ->
+                                cpuTouchPoint = offset
+                                cpuDropdownExpanded = !cpuDropdownExpanded
+                            }
+                        },
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(cpuOffsetX, cpuOffsetY),
+                ) {
+                    DropdownMenuPopup(
+                        expanded = cpuDropdownExpanded,
+                        onDismissRequest = { cpuDropdownExpanded = false },
+                    ) {
+                        DropdownMenuGroup(shapes = MenuDefaults.groupShapes()) {
+                            visibleCpuPairs.forEachIndexed { index, pair ->
+                                SelectableDropdownMenuItem(
+                                    selected = pair == settings.cpuPair,
+                                    onClick = {
+                                        repository.updateSettings { copy(cpuPair = pair) }
+                                        cpuDropdownExpanded = false
+                                    },
+                                    text = { Text(pair.toString()) },
+                                    shapes = MenuDefaults.itemShape(
+                                        index = index,
+                                        count = visibleCpuPairs.size,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            SettingsRow(
+                label = stringResource(R.string.ghostlock_safe_mode),
+                checked = settings.safeMode,
+                onCheckedChange = { repository.updateSettings { copy(safeMode = it) } },
+            )
+
+            SettingsRow(
+                label = stringResource(R.string.ghostlock_use_shizuku),
+                checked = settings.useShizuku,
+                onCheckedChange = { repository.updateSettings { copy(useShizuku = it) } },
+                subtitle = when (shizukuStatus) {
+                    ShizukuStatus.NOT_RUNNING -> stringResource(R.string.ghostlock_shizuku_not_running)
+                    ShizukuStatus.PERMISSION_REQUIRED -> stringResource(R.string.ghostlock_shizuku_permission)
+                    ShizukuStatus.READY -> stringResource(R.string.ghostlock_shizuku_ready)
+                },
+            )
+
+            // --- Status ---
+            val stateText = when (val state = exploitState) {
+                is ExploitState.Running -> "Running: ${state.step} ${state.status}"
+                is ExploitState.Preparing -> "Preparing..."
+                is ExploitState.Finished -> "Finished (exit ${state.exitCode})"
+                is ExploitState.Failed -> "Failed: ${state.error}"
+                is ExploitState.Idle -> null
+            }
+            if (stateText != null) {
+                Text(
+                    text = stateText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // --- Start button ---
+            Button(
+                onClick = { showConsent = true },
+                enabled = !busy && profile?.isValid == true && repository.isSupportedArch(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+            ) {
+                Text(stringResource(R.string.ghostlock_start))
+            }
+
             // --- Profile ---
             GhostlockSectionTitle(stringResource(R.string.ghostlock_section_profile))
 
@@ -414,91 +523,6 @@ fun GhostlockScreen() {
                         .fillMaxWidth()
                         .padding(top = 4.dp),
                 )
-            }
-
-            // --- Execution settings ---
-            GhostlockSectionTitle(stringResource(R.string.ghostlock_section_settings))
-
-            val visibleCpuPairs = cpuPairs.take(20)
-            ExposedDropdownMenuBox(
-                expanded = cpuDropdownExpanded,
-                onExpandedChange = { cpuDropdownExpanded = it },
-            ) {
-                OutlinedTextField(
-                    value = settings.cpuPair.toString(),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.ghostlock_cpu_pair)) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cpuDropdownExpanded) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                DropdownMenuPopup(
-                    expanded = cpuDropdownExpanded,
-                    onDismissRequest = { cpuDropdownExpanded = false },
-                ) {
-                    DropdownMenuGroup(
-                        shapes = MenuDefaults.groupShapes()
-                    ) {
-                        visibleCpuPairs.forEachIndexed { index, pair ->
-                            DropdownMenuItem(
-                                shape = MenuDefaults.itemShape(index, visibleCpuPairs.size).shape,
-                                text = { Text(pair.toString()) },
-                                onClick = {
-                                    repository.updateSettings { copy(cpuPair = pair) }
-                                    cpuDropdownExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-
-            SettingsRow(
-                label = stringResource(R.string.ghostlock_safe_mode),
-                checked = settings.safeMode,
-                onCheckedChange = { repository.updateSettings { copy(safeMode = it) } },
-            )
-
-            SettingsRow(
-                label = stringResource(R.string.ghostlock_use_shizuku),
-                checked = settings.useShizuku,
-                onCheckedChange = { repository.updateSettings { copy(useShizuku = it) } },
-                subtitle = when (shizukuStatus) {
-                    ShizukuStatus.NOT_RUNNING -> stringResource(R.string.ghostlock_shizuku_not_running)
-                    ShizukuStatus.PERMISSION_REQUIRED -> stringResource(R.string.ghostlock_shizuku_permission)
-                    ShizukuStatus.READY -> stringResource(R.string.ghostlock_shizuku_ready)
-                },
-            )
-
-            // --- Status ---
-            val stateText = when (val state = exploitState) {
-                is ExploitState.Running -> "Running: ${state.step} ${state.status}"
-                is ExploitState.Preparing -> "Preparing..."
-                is ExploitState.Finished -> "Finished (exit ${state.exitCode})"
-                is ExploitState.Failed -> "Failed: ${state.error}"
-                is ExploitState.Idle -> null
-            }
-            if (stateText != null) {
-                Text(
-                    text = stateText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Spacer(Modifier.height(4.dp))
-
-            // --- Start button ---
-            Button(
-                onClick = { showConsent = true },
-                enabled = !busy && profile?.isValid == true && repository.isSupportedArch(),
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                Text(stringResource(R.string.ghostlock_start))
             }
 
             Spacer(Modifier.height(24.dp))

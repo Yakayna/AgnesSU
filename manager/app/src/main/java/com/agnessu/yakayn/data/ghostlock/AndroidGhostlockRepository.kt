@@ -45,9 +45,9 @@ class AndroidGhostlockRepository(
     private val _settings = MutableStateFlow(
         ExploitSettings(
             cpuPair = CpuPair(0, 1),
-            safeMode = true,
+            safeMode = false,
             forceAttack = false,
-            useShizuku = true,
+            useShizuku = false,
             debugDir = null,
         )
     )
