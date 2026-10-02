@@ -612,39 +612,41 @@ private fun StatusCard(
         }
 
         systemStatus.kernelVersion.isGKI() -> {
-            SettingsBaseWidget(
-                icon = Icons.TwoTone.Warning,
-                iconSize = 18.dp,
-                isError = true,
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                title = stringResource(R.string.home_not_installed),
-                description = stringResource(R.string.home_click_to_install),
-                onClick = onClick,
-                trailingContent = if (
-                    Os.uname().machine == "aarch64" || systemStatus.isSELinuxPermissive
-                ) {
-                    {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (Os.uname().machine == "aarch64") {
-                                GhostlockButton()
-                                SamsungRootButton()
-                            }
-                            if (systemStatus.isSELinuxPermissive) {
-                                Button(
-                                    onClick = onClickJailbreak,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.error,
-                                        contentColor = MaterialTheme.colorScheme.onError
-                                    )
-
-                                ) {
-                                    Text(stringResource(R.string.home_jailbreak))
-                                }
+            Column {
+                SettingsBaseWidget(
+                    icon = Icons.TwoTone.Warning,
+                    iconSize = 18.dp,
+                    isError = true,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    title = stringResource(R.string.home_not_installed),
+                    description = stringResource(R.string.home_click_to_install),
+                    onClick = onClick,
+                    trailingContent = if (systemStatus.isSELinuxPermissive) {
+                        {
+                            Button(
+                                onClick = onClickJailbreak,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = MaterialTheme.colorScheme.onError
+                                )
+                            ) {
+                                Text(stringResource(R.string.home_jailbreak))
                             }
                         }
+                    } else null
+                )
+
+                // GhostLock + Samsung one-tap root sit below the red
+                // "not installed" card instead of inside its trailing slot, so
+                // the two buttons no longer squeeze the card down.
+                if (Os.uname().machine == "aarch64") {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GhostlockButton()
+                        SamsungRootButton()
                     }
-                } else null
-            )
+                }
+            }
         }
 
         else -> {
