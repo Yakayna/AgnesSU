@@ -627,6 +627,7 @@ private fun StatusCard(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (Os.uname().machine == "aarch64") {
                                 GhostlockButton()
+                                SamsungRootButton()
                             }
                             if (systemStatus.isSELinuxPermissive) {
                                 Button(

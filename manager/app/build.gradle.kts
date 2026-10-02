@@ -237,9 +237,23 @@ val buildGhostlockExtract = tasks.register<Exec>("buildGhostlockExtract") {
     outputs.upToDateWhen { false }
 }
 
+// Samsung: fetch the pinned Root-My-Galaxy CVE-2026-43499 helper into
+// jniLibs/arm64-v8a/libcve43499root.so. The helper is a prebuilt in the public
+// BuSung-dev/Root-My-Galaxy repo and is intentionally not committed here
+// (jniLibs/ is gitignored); the script downloads and SHA-256-verifies it so the
+// one-tap Samsung engine ships a working helper without vendoring the binary.
+val buildSamsungHelper = tasks.register<Exec>("buildSamsungHelper") {
+    group = "samsung"
+    description = "Download the Root-My-Galaxy helper into app/src/main/jniLibs/arm64-v8a/libcve43499root.so"
+    commandLine("bash", rootProject.file("ghostlock/build_samsung_helper.sh").absolutePath)
+
+    outputs.upToDateWhen { false }
+}
+
 tasks.named("preBuild").configure {
     dependsOn(buildGhostlockPayload)
     dependsOn(buildGhostlockExtract)
+    dependsOn(buildSamsungHelper)
 }
 
 dependencies {

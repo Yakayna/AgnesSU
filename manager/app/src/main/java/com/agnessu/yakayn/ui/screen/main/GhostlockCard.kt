@@ -32,3 +32,25 @@ fun GhostlockButton(
         Text(stringResource(R.string.home_ghostlock))
     }
 }
+
+/**
+ * Home-screen entry point into the Samsung one-tap root page (Root-My-Galaxy
+ * engine, [Beta]). Lives next to the GhostLock button on the install card.
+ */
+@Composable
+fun SamsungRootButton(
+    modifier: Modifier = Modifier,
+) {
+    val navigator = LocalNavigator.current
+
+    Button(
+        onClick = { navigator.push(Route.SamsungRoot) },
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+    ) {
+        Text(stringResource(R.string.home_samsung_root))
+    }
+}

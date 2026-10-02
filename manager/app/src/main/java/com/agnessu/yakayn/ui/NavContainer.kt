@@ -74,6 +74,7 @@ import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
 import com.agnessu.yakayn.ui.screen.GhostlockScreen
+import com.agnessu.yakayn.ui.screen.SamsungRootScreen
 import com.agnessu.yakayn.ui.screen.InstallScreen
 import com.agnessu.yakayn.ui.screen.SulogScreen
 import com.agnessu.yakayn.ui.screen.TemplateEditorScreen
@@ -633,6 +634,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     GhostlockScreen()
+                }
+            }
+            entry<Route.SamsungRoot>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    SamsungRootScreen()
                 }
             }
             entry<Route.KernelFlash>(swipeDismiss = NavSwipeDirection.None) { key ->

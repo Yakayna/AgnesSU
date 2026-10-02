@@ -32,6 +32,8 @@ import com.agnessu.yakayn.data.packageinfo.RootServiceRepository
 import com.agnessu.yakayn.data.packageinfo.SuperUserRepository
 import com.agnessu.yakayn.data.profile.ProfileRepository
 import com.agnessu.yakayn.data.profile.ProfileTemplateRepository
+import com.agnessu.yakayn.data.samsung.SamsungPayloadRepository
+import com.agnessu.yakayn.data.samsung.SamsungRootRepository
 import com.agnessu.yakayn.data.settings.LocaleHelper
 import com.agnessu.yakayn.data.settings.LocaleRepository
 import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
@@ -275,6 +277,14 @@ val repositoryModule = module {
             userStore = get(),
             shizukuRunner = get(),
             assetLoader = get(),
+        )
+    }
+    single { SamsungPayloadRepository(androidApplication()) }
+    single {
+        SamsungRootRepository(
+            context = androidApplication(),
+            shizukuRunner = get(),
+            payloadRepository = get(),
         )
     }
     singleOf(::DynamicManagerRepository)
