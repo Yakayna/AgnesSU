@@ -31,6 +31,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
@@ -497,9 +498,13 @@ class AndroidGhostlockRepository(
         if (settings.forceAttack) argv += "--force-attack"
         if (!settings.debugDir.isNullOrEmpty()) argv += listOf("--dump-kernel-log", settings.debugDir)
 
+        val logFile = File(workDir, "exploit.log")
+        logFile.delete()
+
         val process = ProcessBuilder(argv)
             .directory(workDir)
             .redirectErrorStream(true)
+            .redirectOutput(logFile)
             .apply {
                 environment()["GHOSTLOCK_HOME"] = workDir.absolutePath
                 environment()["TMPDIR"] = workDir.absolutePath
@@ -516,24 +521,54 @@ class AndroidGhostlockRepository(
         stdinStream.write(blob)
         stdinStream.flush()
 
-        process.inputStream.bufferedReader().useLines { lines ->
-            lines.forEach { line ->
-                if (line.startsWith("\u001eGLK_STATUS")) {
-                    val parts = line.removePrefix("\u001eGLK_STATUS").trim().split(' ')
-                    if (parts.size >= 2) {
-                        _exploitState.value = ExploitState.Running(parts[0], parts[1])
-                        runCatching {
-                            stdinStream.write("\u001eGLK_STATUS_ACK\n".toByteArray())
-                            stdinStream.flush()
+        // The rooted victim child parks forever with fd 1 (stdout) inherited, so the
+        // native process never reaches stdout EOF. Reading the pipe synchronously would
+        // block here and skip waitFor() entirely, hanging the app at the module-load
+        // log lines. Redirect to a file and tail it instead (mirroring
+        // GhostlockUserService) so waitFor() is always reached.
+        val tailer = Thread {
+            try {
+                val raf = RandomAccessFile(logFile, "r")
+                var offset = 0L
+                while (!Thread.currentThread().isInterrupted) {
+                    raf.seek(offset)
+                    val line = raf.readLine()
+                    if (line != null) {
+                        offset = raf.filePointer
+                        if (line.startsWith(STATUS_MARKER)) {
+                            if (!line.contains(STATUS_DISABLED)) {
+                                val parts = line.removePrefix(STATUS_MARKER).trim().split(' ')
+                                if (parts.size >= 2) {
+                                    _exploitState.value = ExploitState.Running(parts[0], parts[1])
+                                    runCatching {
+                                        stdinStream.write(STATUS_ACK.toByteArray(StandardCharsets.UTF_8))
+                                        stdinStream.flush()
+                                    }
+                                }
+                            }
+                        } else {
+                            onLog(line)
                         }
+                    } else {
+                        Thread.sleep(100)
                     }
-                } else {
-                    onLog(line)
                 }
+                raf.close()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } catch (_: Exception) {
             }
+        }.apply {
+            name = "ghostlock-tailer"
+            isDaemon = true
+            start()
         }
 
-        return process.waitFor()
+        val exitCode = process.waitFor()
+        Thread.sleep(300)
+        tailer.interrupt()
+        tailer.join(1000)
+        return exitCode
     }
 
     private fun prepareKsud(onLog: (String) -> Unit) {
@@ -654,5 +689,8 @@ class AndroidGhostlockRepository(
         private const val TAG = "GhostlockRepo"
         private const val PROFILES_DIR = "kernel_profiles"
         private const val ExtractBinaryName = "libextract.so"
+        private const val STATUS_MARKER = "\u001eGLK_STATUS"
+        private const val STATUS_ACK = "\u001eGLK_STATUS_ACK\n"
+        private const val STATUS_DISABLED = "\u001eGLK_STATUS_DISABLED"
     }
 }
