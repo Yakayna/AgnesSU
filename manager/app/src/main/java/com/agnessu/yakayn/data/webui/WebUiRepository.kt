@@ -1,14 +1,15 @@
 package com.agnessu.yakayn.data.webui
 
-import com.agnessu.yakayn.data.shell.KsuCliRepository
-import com.agnessu.yakayn.domain.model.WebUiCommandResult
-import com.agnessu.yakayn.domain.model.WebUiProcess
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.internal.UiThreadHandler
 import com.topjohnwu.superuser.io.SuFile
 import com.topjohnwu.superuser.io.SuFileInputStream
 import java.util.concurrent.CompletableFuture
+import com.agnessu.yakayn.data.shell.KsuCliRepository
+import com.agnessu.yakayn.domain.model.WebUiCommandResult
+import com.agnessu.yakayn.domain.model.WebUiModuleInfo
+import com.agnessu.yakayn.domain.model.WebUiProcess
 
 class WebUiRepository(
     private val ksuCliRepository: KsuCliRepository,
@@ -24,10 +25,18 @@ class WebUiRepository(
         )
     }
 
-    fun spawn(command: String, globalMnt: Boolean = true): WebUiProcess =
-        ShellWebUiProcess(ksuCliRepository.createRootShell(globalMnt), command)
+    fun spawn(command: String, globalMnt: Boolean = true): WebUiProcess = ShellWebUiProcess(ksuCliRepository.createRootShell(globalMnt), command)
 
     fun listModules(): String = ksuCliRepository.listModules()
+
+    fun getModuleInfo(moduleId: String): WebUiModuleInfo? = ksuCliRepository.withNewRootShell(globalMnt = true) {
+        val rootShell = this
+        readWebUiModuleInfo(
+            moduleId = moduleId,
+            resolveFile = { path -> SuFile(path).apply { shell = rootShell } },
+            openFile = { file -> SuFileInputStream.open(file) },
+        )
+    }
 
     fun openFile(path: String) = runCatching {
         val file = SuFile(path).apply { shell = ksuCliRepository.createRootShell(true) }
@@ -58,7 +67,7 @@ class WebUiRepository(
                                 code = result.code,
                                 stdout = result.out.joinToString("\n"),
                                 stderr = result.err.joinToString("\n"),
-                            )
+                            ),
                         )
                     }
                     .whenComplete { _, _ -> close() }

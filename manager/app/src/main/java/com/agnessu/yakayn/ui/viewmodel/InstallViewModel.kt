@@ -2,9 +2,6 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.InstallEnvironment
-import com.agnessu.yakayn.domain.usecase.GetInstallEnvironmentUseCase
-import com.agnessu.yakayn.domain.usecase.RebootUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -13,6 +10,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.InstallEnvironment
+import com.agnessu.yakayn.domain.usecase.GetInstallEnvironmentUseCase
+import com.agnessu.yakayn.domain.usecase.RebootUseCase
 
 data class InstallUiState(
     val environment: InstallEnvironment = InstallEnvironment(),
@@ -35,7 +35,7 @@ class InstallViewModel(
     private val mutableState = MutableStateFlow(
         getInstallEnvironment.cached()?.let { cached ->
             InstallUiState(environment = cached, loading = false)
-        } ?: InstallUiState()
+        } ?: InstallUiState(),
     )
     private val mutableEvents = MutableSharedFlow<InstallUiEvent>(extraBufferCapacity = 1)
 
@@ -49,6 +49,7 @@ class InstallViewModel(
     fun dispatch(action: InstallUiAction) {
         when (action) {
             InstallUiAction.Refresh -> load(forceRefresh = true)
+
             InstallUiAction.Reboot -> viewModelScope.launch {
                 reboot().onFailure {
                     mutableEvents.tryEmit(InstallUiEvent.Error(it.message.orEmpty()))

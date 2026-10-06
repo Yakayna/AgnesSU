@@ -14,7 +14,7 @@ import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
 
 class ThemeChangeContentObserver(
     handler: Handler,
-    private val onThemeChanged: () -> Unit
+    private val onThemeChanged: () -> Unit,
 ) : ContentObserver(handler) {
     override fun onChange(selfChange: Boolean) {
         super.onChange(selfChange)
@@ -49,7 +49,7 @@ class ThemeUtils(
         activity.contentResolver.registerContentObserver(
             Settings.System.getUriFor("ui_night_mode"),
             false,
-            contentObserver
+            contentObserver,
         )
 
         return contentObserver
@@ -61,12 +61,10 @@ class ThemeUtils(
 
     fun onActivityPause() {
         cardConfig.save()
-        settings.putBoolean("prevent_background_refresh", true)
         themeConfig.preventBackgroundRefresh = true
     }
 
     fun onActivityResume(activity: MainActivity) {
-        settings.putBoolean("prevent_background_refresh", false)
         themeConfig.preventBackgroundRefresh = false
         loadThemeSettings(activity)
     }

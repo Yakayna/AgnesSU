@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (C) 2026 ReSukiSU contributors
+// Copyright (C) 2026 AgnesSU contributors
 package com.agnessu.yakayn.ui.animation.predictiveback
 
 import com.agnessu.yakayn.ui.viewmodel.PredictiveBackAnimation

@@ -6,8 +6,9 @@ import com.agnessu.yakayn.domain.model.KernelStatus
 @Composable
 inline fun KsuIsValid(
     status: KernelStatus,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
-    if (status.isFullFeatured)
+    if (status.isFullFeatured) {
         content()
+    }
 }

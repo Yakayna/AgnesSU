@@ -34,7 +34,7 @@ apksign {
 val baseCFlags = listOf(
     "-Wall", "-Qunused-arguments", "-fvisibility=hidden", "-fvisibility-inlines-hidden",
     "-fno-exceptions", "-fno-stack-protector", "-fomit-frame-pointer",
-    "-Wno-builtin-macro-redefined", "-Wno-unused-value", "-D__FILE__=__FILE_NAME__"
+    "-Wno-builtin-macro-redefined", "-Wno-unused-value", "-D__FILE__=__FILE_NAME__",
 )
 val baseCppFlags = baseCFlags + "-fno-rtti"
 
@@ -63,8 +63,13 @@ android {
                     arguments += "-DCMAKE_BUILD_TYPE=Release"
 
                     val releaseFlags = listOf(
-                        "-flto", "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections",
-                        "-fno-unwind-tables", "-fno-asynchronous-unwind-tables", "-Wl,--exclude-libs,ALL"
+                        "-flto",
+                        "-ffunction-sections",
+                        "-fdata-sections",
+                        "-Wl,--gc-sections",
+                        "-fno-unwind-tables",
+                        "-fno-asynchronous-unwind-tables",
+                        "-Wl,--exclude-libs,ALL",
                     )
                     val configFlags = listOf("-Oz", "-DNDEBUG").joinToString(" ")
 
@@ -74,7 +79,7 @@ android {
                     arguments += listOf(
                         "-DCMAKE_CXX_FLAGS_RELEASE=$configFlags",
                         "-DCMAKE_C_FLAGS_RELEASE=$configFlags",
-                        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--gc-sections -Wl,--exclude-libs,ALL -Wl,--icf=all -s -Wl,--hash-style=sysv -Wl,-z,norelro"
+                        "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,--gc-sections -Wl,--exclude-libs,ALL -Wl,--icf=all -s -Wl,--hash-style=sysv -Wl,-z,norelro",
                     )
                 }
             }
@@ -128,7 +133,7 @@ android {
         targetSdk = androidTargetSdkVersion
         versionCode = managerVersionCode
         versionName = managerVersionName
-        applicationId  = managerPackageName
+        applicationId = managerPackageName
 
         val isPrBuild = rootProject.extra["isPrBuild"] as Boolean
         buildConfigField("boolean", "IS_PR_BUILD", isPrBuild.toString())
@@ -143,7 +148,7 @@ android {
         }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
+            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a", "riscv64")
         }
     }
 
@@ -151,7 +156,7 @@ android {
         abi {
             isEnable = isReleaseTask
             reset()
-            include("arm64-v8a", "x86_64", "armeabi-v7a")
+            include("arm64-v8a", "x86_64", "armeabi-v7a", "riscv64")
             isUniversalApk = true
         }
     }
@@ -175,7 +180,7 @@ baselineProfile {
 
 base {
     archivesName.set(
-        "AgnesSU_${managerVersionName}_${managerVersionCode}"
+        "AgnesSU_${managerVersionName}_$managerVersionCode",
     )
 }
 
@@ -269,6 +274,7 @@ dependencies {
 
     implementation(libs.gson)
     implementation(libs.commons.compress)
+    implementation(libs.xz)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.profileinstaller)

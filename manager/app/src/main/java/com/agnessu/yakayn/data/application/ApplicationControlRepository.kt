@@ -1,9 +1,9 @@
 package com.agnessu.yakayn.data.application
 
-import com.agnessu.yakayn.Natives
-import com.agnessu.yakayn.data.shell.KsuCliRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.agnessu.yakayn.Natives
+import com.agnessu.yakayn.data.shell.KsuCliRepository
 
 class ApplicationControlRepository(
     private val ksuCliRepository: KsuCliRepository,

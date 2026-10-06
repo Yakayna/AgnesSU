@@ -29,7 +29,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -39,32 +38,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.ui.component.KeyEventBlocker
 import com.agnessu.yakayn.ui.component.SwipeableSnackbarHost
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.theme.CardConfig
-import com.agnessu.yakayn.ui.theme.MonospaceFontFamily
 import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.theme.blurSource
+import com.agnessu.yakayn.ui.theme.monospaceFontFamily
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionUiAction
 import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionUiEvent
 import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionViewModel
-import kotlinx.coroutines.flow.collectLatest
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
-fun ExecuteModuleActionScreen(moduleId: String) {
+fun ExecuteModuleActionScreen(moduleId: String, fromShortcut: Boolean) {
     val viewModel = koinViewModel<ExecuteModuleActionViewModel>(
         parameters = { parametersOf(moduleId) },
     )
@@ -82,11 +80,6 @@ fun ExecuteModuleActionScreen(moduleId: String) {
 
     BackHandler(enabled = moduleActionState.running) {
         // Disable back button if action is running
-    }
-
-    val fromShortcut = remember(activity) {
-        val intent = activity?.intent
-        intent?.getStringExtra("shortcut_type") == "module_action"
     }
 
     LaunchedEffect(viewModel, fromShortcut) {
@@ -135,14 +128,14 @@ fun ExecuteModuleActionScreen(moduleId: String) {
                     icon = { Icon(Icons.TwoTone.Close, contentDescription = null) },
                     onClick = {
                         navigator.pop()
-                    }
+                    },
                 )
             }
         },
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
-        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) }
+        snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) },
     ) { innerPadding ->
         KeyEventBlocker {
             it.key == Key.VolumeDown || it.key == Key.VolumeUp
@@ -164,7 +157,7 @@ fun ExecuteModuleActionScreen(moduleId: String) {
                     modifier = Modifier.padding(8.dp),
                     text = moduleActionState.output,
                     fontSize = MaterialTheme.typography.bodySmall.fontSize,
-                    fontFamily = MonospaceFontFamily(),
+                    fontFamily = monospaceFontFamily(),
                     lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
                 )
             }
@@ -186,19 +179,18 @@ private fun TopBar(
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
     LargeFlexibleTopAppBar(
-        modifier = Modifier.blurEffect(
-        ),
+        modifier = Modifier.blurEffect(),
         title = { Text(stringResource(R.string.action)) },
         scrollBehavior = scrollBehavior,
         navigationIcon = {
             AppBackButton(
-                onClick = onBack
+                onClick = onBack,
             )
         },
         actions = {
             IconButton(
                 onClick = onSave,
-                enabled = !isActionRunning
+                enabled = !isActionRunning,
             ) {
                 Icon(
                     imageVector = Icons.TwoTone.Save,
@@ -208,16 +200,18 @@ private fun TopBar(
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor =
-                if (themeConfig.isEnableBlur)
+                if (themeConfig.isEnableBlur) {
                     Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                },
             scrolledContainerColor =
-                if (themeConfig.isEnableBlur)
+                if (themeConfig.isEnableBlur) {
                     Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                },
         ),
-        windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp))
+        windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
     )
 }

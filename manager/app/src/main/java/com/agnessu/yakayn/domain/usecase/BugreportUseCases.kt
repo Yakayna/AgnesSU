@@ -1,7 +1,7 @@
 package com.agnessu.yakayn.domain.usecase
 
-import com.agnessu.yakayn.data.logging.BugreportRepository
 import java.io.File
+import com.agnessu.yakayn.data.logging.BugreportRepository
 
 class GenerateBugreportUseCase(
     private val repository: BugreportRepository,

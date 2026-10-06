@@ -2,6 +2,15 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.domain.model.CatalogModule
 import com.agnessu.yakayn.domain.model.ModuleCatalogFailure
 import com.agnessu.yakayn.domain.model.ModuleCatalogResult
@@ -12,15 +21,6 @@ import com.agnessu.yakayn.domain.usecase.ObserveModuleCatalogRefreshingUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshModuleCatalogUseCase
 import com.agnessu.yakayn.domain.usecase.SetBooleanPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.TransliterateTextUseCase
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 data class ModuleRepoUiState(
     val modules: List<CatalogModule> = emptyList(),
@@ -52,7 +52,7 @@ class ModuleRepoViewModel(
 ) : ViewModel() {
     private val search = MutableStateFlow("")
     private val sortStarsFirst = MutableStateFlow(
-        getBooleanPreference("module_repo_sort_star_first", false)
+        getBooleanPreference("module_repo_sort_star_first", false),
     )
     private val mutableEvents = MutableSharedFlow<ModuleRepoUiEvent>(extraBufferCapacity = 1)
 
@@ -67,11 +67,11 @@ class ModuleRepoViewModel(
         ModuleRepoUiState(
             modules = modules.filter { module ->
                 module.moduleId.contains(query, true) ||
-                        module.moduleName.contains(query, true) ||
-                        transliterateText(module.moduleName).contains(query, true)
+                    module.moduleName.contains(query, true) ||
+                    transliterateText(module.moduleName).contains(query, true)
             }.sortedWith(
                 compareByDescending<CatalogModule> { it.installed }
-                    .thenByDescending { if (starsFirst) it.stargazerCount else 0 }
+                    .thenByDescending { if (starsFirst) it.stargazerCount else 0 },
             ),
             sortStargazerCountFirst = starsFirst,
             isRefreshing = refreshing,
@@ -98,16 +98,18 @@ class ModuleRepoViewModel(
         viewModelScope.launch {
             when (val result = refreshCatalog()) {
                 is ModuleCatalogResult.Success -> Unit
+
                 is ModuleCatalogResult.Failure -> {
                     onFailure?.invoke()
                     when (val reason = result.reason) {
                         ModuleCatalogFailure.Offline -> mutableEvents.emit(ModuleRepoUiEvent.Offline)
+
                         ModuleCatalogFailure.NotFound -> mutableEvents.emit(
-                            ModuleRepoUiEvent.Error("Module not found")
+                            ModuleRepoUiEvent.Error("Module not found"),
                         )
 
                         is ModuleCatalogFailure.Network -> mutableEvents.emit(
-                            ModuleRepoUiEvent.Error(reason.message)
+                            ModuleRepoUiEvent.Error(reason.message),
                         )
                     }
                 }

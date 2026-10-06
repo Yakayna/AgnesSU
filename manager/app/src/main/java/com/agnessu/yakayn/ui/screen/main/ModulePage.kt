@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -50,10 +51,8 @@ import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.MoreVert
-import androidx.compose.material.icons.twotone.Photo
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material.icons.twotone.Refresh
-import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,7 +62,6 @@ import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -72,7 +70,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
@@ -81,7 +78,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -119,10 +115,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.capsule.ContinuousRoundedRectangle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.agnessu.yakayn.R
+import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
 import com.agnessu.yakayn.domain.model.InstalledModule
 import com.agnessu.yakayn.domain.model.MetaModuleStatus
 import com.agnessu.yakayn.domain.usecase.EnqueueDownloadUseCase
@@ -155,9 +155,9 @@ import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
 import com.agnessu.yakayn.ui.util.LocalPermissionRequestInterface
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
+import com.agnessu.yakayn.ui.util.Shortcut
 import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.downloader.download
-import com.agnessu.yakayn.ui.util.module.Shortcut
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
 import com.agnessu.yakayn.ui.viewmodel.ModuleUiAction
@@ -165,17 +165,12 @@ import com.agnessu.yakayn.ui.viewmodel.ModuleUiEvent
 import com.agnessu.yakayn.ui.viewmodel.ModuleUiState
 import com.agnessu.yakayn.ui.viewmodel.ModuleViewModel
 import com.agnessu.yakayn.ui.webui.WebUIActivity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
-
-private enum class ShortcutType {
+enum class ShortcutType {
     Action,
-    WebUI
+    WebUI,
 }
 
 /**
@@ -210,19 +205,21 @@ fun ModulePage(bottomPadding: Dp) {
         onConfirm = { info ->
             showConfirmationDialog = false
             navigator.push(
-                Route.Flash.modules(info.filter { it.type == ZipType.MODULE }
-                    .map { it.uri.toString() })
+                Route.Flash.modules(
+                    info.filter { it.type == ZipType.MODULE }
+                        .map { it.uri.toString() },
+                ),
             )
             viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
         },
         onDismiss = {
             showConfirmationDialog = false
             pendingZipFiles = emptyList()
-        }
+        },
     )
 
     val selectZipLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
+        contract = ActivityResultContracts.StartActivityForResult(),
     ) {
         if (it.resultCode != RESULT_OK) {
             return@rememberLauncherForActivityResult
@@ -236,14 +233,15 @@ fun ModulePage(bottomPadding: Dp) {
                 val selectedModules = mutableListOf<Uri>()
                 val selectedModuleNames = mutableMapOf<Uri, String>()
 
-                fun processUri(uri: Uri) {
+                suspend fun processUri(uri: Uri) {
                     try {
                         val uriString = uri.toString()
                         if (!isModuleUriAccessible(uriString)) {
                             return
                         }
                         takeModuleUriPermission(uriString)
-                        val moduleName = extractModuleName(uriString)
+                        val moduleName =
+                            withContext(Dispatchers.IO) { extractModuleName(uriString) }
                         selectedModules.add(uri)
                         selectedModuleNames[uri] = moduleName
                     } catch (e: Exception) {
@@ -261,7 +259,9 @@ fun ModulePage(bottomPadding: Dp) {
                     return@launch
                 }
                 selectedModules.forEach { it ->
-                    zipFiles.add(zipFileDetector.parseModuleInfo(context, it))
+                    val info =
+                        withContext(Dispatchers.IO) { zipFileDetector.parseModuleInfo(context, it) }
+                    zipFiles.add(info)
                 }
                 pendingZipFiles = zipFiles
 
@@ -278,7 +278,13 @@ fun ModulePage(bottomPadding: Dp) {
 
                     takeModuleUriPermission(uriString)
 
-                    zipFiles.add(zipFileDetector.parseModuleInfo(context, uri))
+                    val info = withContext(Dispatchers.IO) {
+                        zipFileDetector.parseModuleInfo(
+                            context,
+                            uri,
+                        )
+                    }
+                    zipFiles.add(info)
                     pendingZipFiles = zipFiles
 
                     showConfirmationDialog = true
@@ -302,7 +308,7 @@ fun ModulePage(bottomPadding: Dp) {
 
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = rememberSearchAppBarScrollBehavior(
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState),
     )
 
     Scaffold(
@@ -334,7 +340,7 @@ fun ModulePage(bottomPadding: Dp) {
                     IconButton(
                         onClick = {
                             navigator.push(Route.ModuleRepo)
-                        }
+                        },
                     ) {
                         Icon(
                             imageVector = Icons.TwoTone.Cloud,
@@ -358,15 +364,15 @@ fun ModulePage(bottomPadding: Dp) {
                         Intent(Intent.ACTION_GET_CONTENT).apply {
                             type = "application/zip"
                             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                        }
+                        },
                     )
                 },
                 content = {
                     Icon(
                         painter = painterResource(id = R.drawable.package_import),
-                        contentDescription = null
+                        contentDescription = null,
                     )
-                }
+                },
             )
         },
         containerColor = Color.Transparent,
@@ -374,9 +380,9 @@ fun ModulePage(bottomPadding: Dp) {
         contentWindowInsets = adaptiveScaffoldWindowInsets(includeBottom = false),
         snackbarHost = {
             SwipeableSnackbarHost(
-                hostState = snackBarHost
+                hostState = snackBarHost,
             )
-        }
+        },
     ) { innerPadding ->
         when {
             uiState.hasMagisk -> {
@@ -384,18 +390,18 @@ fun ModulePage(bottomPadding: Dp) {
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
                     ) {
                         Icon(
                             imageVector = Icons.TwoTone.Warning,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(64.dp)
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = 16.dp),
                         )
                         Text(
                             stringResource(R.string.module_magisk_conflict),
@@ -405,36 +411,39 @@ fun ModulePage(bottomPadding: Dp) {
                     }
                 }
             }
+
             uiState.moduleList.isEmpty() -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
                     ) {
                         Icon(
                             imageVector = Icons.TwoTone.Extension,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(96.dp)
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = 16.dp),
                         )
                         Text(
                             text =
-                                if (uiState.search.isNotEmpty())
+                                if (uiState.search.isNotEmpty()) {
                                     stringResource(R.string.search_no_any_match)
-                                else
-                                    stringResource(R.string.module_empty),
+                                } else {
+                                    stringResource(R.string.module_empty)
+                                },
                             textAlign = TextAlign.Center,
                             style = MaterialTheme.typography.bodyLarge,
                         )
                     }
                 }
             }
+
             else -> {
                 ModuleList(
                     viewModel = viewModel,
@@ -444,7 +453,7 @@ fun ModulePage(bottomPadding: Dp) {
                     onUpdateModule = {
                         navigator.push(Route.Flash.moduleUpdate(it.toString()))
                     },
-                    onClickModule = { id, name, hasWebUi ->
+                    onClickModule = { id, hasWebUi ->
                         val currentTime = System.currentTimeMillis()
                         if (currentTime - lastClickTime < 600) {
                             Log.d("ModuleScreen", "Click too fast, ignoring")
@@ -456,9 +465,13 @@ fun ModulePage(bottomPadding: Dp) {
                             try {
                                 context.startActivity(
                                     Intent(context, WebUIActivity::class.java)
-                                    .setData("kernelsu://webui/$id".toUri())
-                                    .putExtra("id", id)
-                                        .putExtra("name", name)
+                                        .setData(
+                                            Uri.Builder()
+                                                .scheme("kernelsu")
+                                                .authority("webui")
+                                                .appendQueryParameter("id", id)
+                                                .build(),
+                                        ),
                                 )
                             } catch (e: Exception) {
                                 Log.e("ModuleScreen", "Error launching WebUI: ${e.message}", e)
@@ -498,7 +511,7 @@ private fun ModuleDropdown(
                 checked = uiState.sortActionFirst,
                 onCheckedChange = {
                     viewModel.dispatch(
-                        ModuleUiAction.Sort(uiState.sortEnabledFirst, it)
+                        ModuleUiAction.Sort(uiState.sortEnabledFirst, it),
                     )
                 },
                 text = { Text(stringResource(R.string.module_sort_action_first)) },
@@ -511,7 +524,7 @@ private fun ModuleDropdown(
                 checked = uiState.sortEnabledFirst,
                 onCheckedChange = {
                     viewModel.dispatch(
-                        ModuleUiAction.Sort(it, uiState.sortActionFirst)
+                        ModuleUiAction.Sort(it, uiState.sortActionFirst),
                     )
                 },
                 text = { Text(stringResource(R.string.module_sort_enabled_first)) },
@@ -529,7 +542,7 @@ private fun getMetaModuleWarningText(
     showWarning: Boolean,
     context: Context,
     status: MetaModuleStatus,
-) : String? {
+): String? {
     if (!showWarning) return null
     if (!hasModuleRequireMount) return null
 
@@ -551,7 +564,7 @@ private fun MetaModuleWarningCard(
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically()
+        exit = fadeOut() + shrinkVertically(),
     ) {
         WarningCard(
             shape = CardDefaults.elevatedShape,
@@ -572,13 +585,14 @@ private fun ModuleList(
     modifier: Modifier = Modifier,
     boxModifier: Modifier = Modifier,
     onUpdateModule: (Uri) -> Unit,
-    onClickModule: (id: String, name: String, hasWebUi: Boolean) -> Unit,
+    onClickModule: (id: String, hasWebUi: Boolean) -> Unit,
     context: Context,
     snackBarHost: SnackbarHostState,
-    bottomPadding : Dp,
-    topPadding : Dp,
+    bottomPadding: Dp,
+    topPadding: Dp,
 ) {
     val shortcut = koinInject<Shortcut>()
+    val settings = koinInject<SettingsPlatformRepository>()
     var showMetaModuleWarning by rememberSaveable { mutableStateOf(true) }
     val fetchRemoteText = koinInject<FetchRemoteTextUseCase>()
     val enqueueDownload = koinInject<EnqueueDownloadUseCase>()
@@ -666,7 +680,6 @@ private fun ModuleList(
     var defaultWebUiShortcutIconUri by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedShortcutType by rememberSaveable { mutableStateOf<ShortcutType?>(null) }
     val showShortcutDialog = remember { mutableStateOf(false) }
-    val showShortcutTypeRow = remember { mutableStateOf(false) }
 
     fun openShortcutDialogForType(type: ShortcutType) {
         selectedShortcutType = type
@@ -679,11 +692,9 @@ private fun ModuleList(
         showShortcutDialog.value = true
     }
 
-    fun hasModuleShortcut(context: Context, moduleId: String, type: ShortcutType): Boolean {
-        return when (type) {
-            ShortcutType.Action -> shortcut.hasModuleActionShortcut(context, moduleId)
-            ShortcutType.WebUI -> shortcut.hasModuleWebUiShortcut(context, moduleId)
-        }
+    fun hasModuleShortcut(context: Context, moduleId: String, type: ShortcutType): Boolean = when (type) {
+        ShortcutType.Action -> shortcut.hasModuleActionShortcut(context, moduleId)
+        ShortcutType.WebUI -> shortcut.hasModuleWebUiShortcut(context, moduleId)
     }
 
     fun deleteModuleShortcut(context: Context, moduleId: String, type: ShortcutType) {
@@ -698,7 +709,8 @@ private fun ModuleList(
         moduleId: String,
         name: String,
         iconUri: String?,
-        type: ShortcutType
+        type: ShortcutType,
+        intentToken: String,
     ) {
         when (type) {
             ShortcutType.Action -> {
@@ -706,7 +718,8 @@ private fun ModuleList(
                     context = context,
                     moduleId = moduleId,
                     name = name,
-                    iconUri = iconUri
+                    iconUri = iconUri,
+                    intentToken = intentToken,
                 )
             }
 
@@ -715,14 +728,15 @@ private fun ModuleList(
                     context = context,
                     moduleId = moduleId,
                     name = name,
-                    iconUri = iconUri
+                    iconUri = iconUri,
+                    intentToken = intentToken,
                 )
             }
         }
     }
 
     val pickShortcutIconLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.GetContent(),
     ) { uri ->
         shortcutIconUri = uri?.toString()
     }
@@ -758,7 +772,7 @@ private fun ModuleList(
         module: InstalledModule,
         changelogUrl: String,
         downloadUrl: String,
-        fileName: String
+        fileName: String,
     ) {
         val changelogResult = loadingDialog.withLoading {
             fetchRemoteText(changelogUrl)
@@ -769,7 +783,7 @@ private fun ModuleList(
                 Toast.makeText(
                     context,
                     msg,
-                    Toast.LENGTH_SHORT
+                    Toast.LENGTH_SHORT,
                 ).show()
             }
         }
@@ -821,7 +835,7 @@ private fun ModuleList(
                 moduleStr,
                 content = formatter.format(module.name),
                 confirm = uninstall,
-                dismiss = cancel
+                dismiss = cancel,
             )
             if (confirmResult != ConfirmResult.Confirmed) {
                 return
@@ -837,7 +851,7 @@ private fun ModuleList(
         viewModel.dispatch(ModuleUiAction.SetRemoved(module.dirId, isUninstall))
     }
 
-    fun onModuleAddShortcut(module: InstalledModule) {
+    fun onModuleAddShortcut(module: InstalledModule, shortcutType: ShortcutType) {
         shortcutModuleId = module.id
         textFieldState.edit {
             replace(0, length, module.name)
@@ -850,9 +864,9 @@ private fun ModuleList(
         defaultWebUiShortcutIconUri = module.webUiIconPath
             ?.takeIf { it.isNotBlank() }
             ?.let { "su:$it" }
+        openShortcutDialogForType(shortcutType)
         if (module.hasActionScript && module.hasWebUi) {
             selectedShortcutType = null
-            showShortcutTypeRow.value = true
             openShortcutDialogForType(ShortcutType.Action)
         } else if (module.hasActionScript) {
             openShortcutDialogForType(ShortcutType.Action)
@@ -878,7 +892,7 @@ private fun ModuleList(
                 isRefreshing = uiState.isRefreshing,
             )
         },
-        isRefreshing = uiState.isRefreshing
+        isRefreshing = uiState.isRefreshing,
     ) {
         val metaModuleWarningText by produceState<String?>(
             initialValue = null,
@@ -904,7 +918,7 @@ private fun ModuleList(
                     start = 16.dp,
                     top = 0.dp,
                     end = 16.dp,
-                    bottom = 72.dp + 5.dp + 5.dp // FAB + bottom padding of FAB
+                    bottom = 72.dp + 5.dp + 5.dp, // FAB + bottom padding of FAB
                 )
             },
         ) {
@@ -914,7 +928,7 @@ private fun ModuleList(
 
             if (metaModuleWarningText != null) {
                 item(
-                    key = "warning"
+                    key = "warning",
                 ) {
                     MetaModuleWarningCard(
                         text = metaModuleWarningText!!,
@@ -927,7 +941,7 @@ private fun ModuleList(
 
             items(
                 items = uiState.moduleList,
-                key = { "module-$it.id" }
+                key = { "module-$it.id" },
             ) { module ->
                 ModuleItem(
                     viewModel = viewModel,
@@ -952,16 +966,16 @@ private fun ModuleList(
                                     module,
                                     module.moduleUpdate!!.changelog,
                                     module.moduleUpdate.zipUrl,
-                                    "${module.name}-${module.moduleUpdate.version}.zip"
+                                    "${module.name}-${module.moduleUpdate.version}.zip",
                                 )
                             }
                         }
                     },
                     onClick = {
-                        onClickModule(it.dirId, it.name, it.hasWebUi)
+                        onClickModule(it.dirId, it.hasWebUi)
                     },
-                    onModuleAddShortcut = {
-                        onModuleAddShortcut(it)
+                    onModuleAddShortcut = { module, type ->
+                        onModuleAddShortcut(module, type)
                     },
                     showMoreModuleInfo = uiState.showMoreModuleInfo,
                 )
@@ -979,12 +993,11 @@ private fun ModuleList(
         ModalBottomSheet(
             sheetState = rememberBottomSheetState(
                 initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
             ),
             onDismissRequest = {
                 showShortcutDialog.value = false
-                showShortcutTypeRow.value = false
-            }
+            },
         ) {
             var error by remember { mutableStateOf("") }
             Column(
@@ -996,44 +1009,15 @@ private fun ModuleList(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
-                        .padding(horizontal = 24.dp)
+                        .padding(horizontal = 24.dp),
                 )
-                if (showShortcutTypeRow.value) {
-                    PrimaryTabRow(
-                        selectedTabIndex = selectedShortcutType?.ordinal ?: 0,
-                        containerColor = Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Tab(
-                            selected = selectedShortcutType == ShortcutType.Action,
-                            onClick = {
-                                selectedShortcutType = ShortcutType.Action
-                                shortcutIconUri = defaultActionShortcutIconUri
-                                defaultShortcutIconUri = defaultActionShortcutIconUri
-                            },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            text = { Text("Action") }
-                        )
-
-                        Tab(
-                            selected = selectedShortcutType == ShortcutType.WebUI,
-                            onClick = {
-                                selectedShortcutType = ShortcutType.WebUI
-                                shortcutIconUri = defaultWebUiShortcutIconUri
-                                defaultShortcutIconUri = defaultWebUiShortcutIconUri
-                            },
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            text = { Text("WebUI") }
-                        )
-                    }
-                }
 
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .padding(vertical = 16.dp)
                         .size(100.dp)
-                        .clip(ContinuousRoundedRectangle(25.dp))
+                        .clip(ContinuousRoundedRectangle(25.dp)),
                 ) {
                     val preview = shortcutPreviewIcon.value
                     if (preview != null) {
@@ -1046,12 +1030,12 @@ private fun ModuleList(
                         Box(
                             modifier = Modifier
                                 .size(100.dp)
-                                .background(Color.White)
+                                .background(Color.White),
                         )
                         Image(
                             painter = painterResource(id = R.drawable.ic_launcher_foreground),
                             contentDescription = null,
-                            contentScale = FixedScale(1.5f)
+                            contentScale = FixedScale(1.5f),
                         )
                     }
                 }
@@ -1059,36 +1043,36 @@ private fun ModuleList(
                     if (shortcutIconUri == defaultShortcutIconUri) {
                         item {
                             SettingsBaseWidget(
-                                icon = Icons.TwoTone.Photo,
+                                iconPlaceholder = false,
                                 isOnBackground = false,
                                 title = stringResource(id = R.string.module_shortcut_icon_pick),
                                 onClick = {
                                     pickShortcutIconLauncher.launch("image/*")
-                                }
+                                },
                             ) {
                                 Icon(
                                     imageVector = Icons.TwoTone.ChevronRight,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp),
                                 )
                             }
                         }
                     } else {
                         item {
                             SettingsBaseWidget(
-                                icon = Icons.TwoTone.Restore,
+                                iconPlaceholder = false,
                                 isOnBackground = false,
                                 title = stringResource(id = R.string.restore),
                                 onClick = {
                                     shortcutIconUri = defaultShortcutIconUri
-                                }
+                                },
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.TwoTone.Undo,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp),
                                 )
                             }
                         }
@@ -1107,14 +1091,16 @@ private fun ModuleList(
                         LaunchedEffect(textFieldState.text) {
                             error = if (textFieldState.text.isBlank()) {
                                 shouldNotEmpty
-                            } else ""
+                            } else {
+                                ""
+                            }
                         }
                     }
 
                     if (hasExistingShortcut) {
                         item {
                             SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Delete,
+                                iconPlaceholder = false,
                                 renderBackgroundBlur = false,
                                 title = stringResource(id = R.string.module_shortcut_delete),
                                 onClick = {
@@ -1128,15 +1114,37 @@ private fun ModuleList(
                             )
                         }
                     }
+
+                    item {
+                        val settings = koinInject<SettingsPlatformRepository>()
+                        val moduleShortcutSchemeCopied = stringResource(R.string.module_shortcut_scheme_copied)
+
+                        SettingsJumpPageWidget(
+                            iconPlaceholder = false,
+                            renderBackgroundBlur = false,
+                            title = stringResource(R.string.module_shortcut_copy_scheme),
+                            onClick = {
+                                val currentModuleId = shortcutModuleId
+                                val type = selectedShortcutType
+                                if (currentModuleId.isNullOrBlank() || type == null) {
+                                    return@SettingsJumpPageWidget
+                                }
+                                val url = shortcut.buildShortcutUri(currentModuleId, type, settings.intentToken).toString()
+                                val clipboard = context.getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("KernelSU deep link", url))
+                                Toast.makeText(context, moduleShortcutSchemeCopied, Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
                 }
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     OutlinedButton(
                         onClick = { showShortcutDialog.value = false },
                         modifier = Modifier
                             .weight(1f)
-                            .padding(start = 16.dp)
+                            .padding(start = 16.dp),
                     ) {
                         Text(
                             text = stringResource(id = android.R.string.cancel),
@@ -1153,7 +1161,8 @@ private fun ModuleList(
                                     moduleId = moduleId,
                                     name = textFieldState.text.toString(),
                                     iconUri = shortcutIconUri,
-                                    type = type
+                                    type = type,
+                                    intentToken = settings.intentToken,
                                 )
                             }
                             showShortcutDialog.value = false
@@ -1161,7 +1170,7 @@ private fun ModuleList(
                         enabled = error.isBlank(),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = 16.dp)
+                            .padding(end = 16.dp),
                     ) {
                         Text(
                             text = if (hasExistingShortcut) {
@@ -1188,7 +1197,7 @@ fun ModuleItem(
     onCheckChanged: suspend (Boolean) -> Boolean,
     onUpdate: (InstalledModule) -> Unit,
     onClick: (InstalledModule) -> Unit,
-    onModuleAddShortcut: (InstalledModule) -> Unit,
+    onModuleAddShortcut: (InstalledModule, ShortcutType) -> Unit,
     showMoreModuleInfo: Boolean,
 ) {
     val themeConfig: ThemeConfig = koinInject()
@@ -1210,11 +1219,12 @@ fun ModuleItem(
             .clip(RoundedCornerShape(16.dp))
             .renderBackgroundBlur(),
         color =
-            if (themeConfig.isEnableBlurExp)
+            if (themeConfig.isEnableBlurExp) {
                 Color.Transparent
-            else
-                MaterialTheme.colorScheme.surfaceBright.copy(cardConfig.cardAlpha),
-        shape = RoundedCornerShape(16.dp)
+            } else {
+                MaterialTheme.colorScheme.surfaceBright.copy(cardConfig.cardAlpha)
+            },
+        shape = RoundedCornerShape(16.dp),
     ) {
         val textDecoration = if (!module.remove) null else TextDecoration.LineThrough
         val interactionSource = remember { MutableInteractionSource() }
@@ -1230,36 +1240,33 @@ fun ModuleItem(
                 .run {
                     if (module.hasActionScript || module.hasWebUi) {
                         combinedClickable(
-                            onLongClick = {
-                                onModuleAddShortcut(module)
-                            },
                             onClick = {
                                 if (module.hasWebUi) {
                                     onClick(module)
                                 }
-                            }
+                            },
                         )
                     } else {
                         this
                     }
                 }
                 .padding(horizontal = 16.dp)
-                .padding(top = 12.dp)
+                .padding(top = 12.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 val moduleVersion = stringResource(id = R.string.module_version)
                 val moduleAuthor = stringResource(id = R.string.module_author)
 
                 Column(
-                    modifier = Modifier.fillMaxWidth(0.8f)
+                    modifier = Modifier.fillMaxWidth(0.8f),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             text = module.name,
@@ -1268,7 +1275,7 @@ fun ModuleItem(
                             lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
                             fontFamily = MaterialTheme.typography.titleMedium.fontFamily,
                             textDecoration = textDecoration,
-                            modifier = Modifier.weight(1f, false)
+                            modifier = Modifier.weight(1f, false),
                         )
                     }
 
@@ -1307,7 +1314,7 @@ fun ModuleItem(
                                     onLongClick = {
                                         val clipData = ClipData.newPlainText(
                                             "Update JSON URL",
-                                            module.updateJson
+                                            module.updateJson,
                                         )
                                         clipboardManager.setPrimaryClip(clipData)
                                         hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -1315,9 +1322,9 @@ fun ModuleItem(
                                         Toast.makeText(
                                             context,
                                             context.getString(R.string.module_update_json_copied),
-                                            Toast.LENGTH_SHORT
+                                            Toast.LENGTH_SHORT,
                                         ).show()
-                                    }
+                                    },
                                 ),
                         )
                     }
@@ -1353,8 +1360,7 @@ fun ModuleItem(
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(SwitchDefaults.IconSize),
                                 )
-                            } else
-                            {
+                            } else {
                                 Icon(
                                     imageVector = Icons.TwoTone.Close,
                                     contentDescription = null,
@@ -1362,7 +1368,7 @@ fun ModuleItem(
                                     modifier = Modifier.size(SwitchDefaults.IconSize),
                                 )
                             }
-                        }
+                        },
                     )
                 }
             }
@@ -1384,7 +1390,7 @@ fun ModuleItem(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 LabelText(
                     label = module.dirId,
@@ -1408,48 +1414,75 @@ fun ModuleItem(
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (module.hasActionScript) {
-                    FilledTonalButton(
-                        modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
-                        enabled = !module.remove && isEnabled,
-                        onClick = {
-                            navigator.push(Route.ExecuteModuleAction(module.dirId))
-                            viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+                    Surface(
+                        modifier = Modifier
+                            .padding(vertical = 5.dp)
+                            .defaultMinSize(minWidth = 52.dp, minHeight = 32.dp)
+                            .clip(ButtonDefaults.filledTonalShape)
+                            .combinedClickable(
+                                onClick = {
+                                    navigator.push(Route.ExecuteModuleAction(module.dirId, false))
+                                    viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+                                },
+                                onLongClick = {
+                                    onModuleAddShortcut(module, ShortcutType.Action)
+                                },
+                            ),
+                        color =
+                            if (!module.remove && isEnabled) {
+                                ButtonDefaults.filledTonalButtonColors().containerColor
+                            } else {
+                                ButtonDefaults.filledTonalButtonColors().disabledContainerColor
+                            },
+                        contentColor = if (!module.remove && isEnabled) {
+                            ButtonDefaults.filledTonalButtonColors().contentColor
+                        } else {
+                            ButtonDefaults.filledTonalButtonColors().disabledContentColor
                         },
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            top = 7.dp,
-                            end = 12.dp,
-                            bottom = 7.dp,
-                        ),
                     ) {
                         Icon(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(12.dp, 7.dp, 12.dp, 7.dp),
                             imageVector = Icons.TwoTone.PlayArrow,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     }
                 }
 
                 if (module.hasWebUi) {
-                    FilledTonalButton(
-                        modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
-                        enabled = !module.remove && isEnabled,
-                        onClick = { onClick(module) },
-                        interactionSource = interactionSource,
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            top = 7.dp,
-                            end = 12.dp,
-                            bottom = 7.dp,
-                        ),
+                    Surface(
+                        modifier = Modifier
+                            .padding(vertical = 5.dp)
+                            .defaultMinSize(minWidth = 52.dp, minHeight = 32.dp)
+                            .clip(ButtonDefaults.filledTonalShape)
+                            .combinedClickable(
+                                onClick = { onClick(module) },
+                                onLongClick = {
+                                    onModuleAddShortcut(module, ShortcutType.WebUI)
+                                },
+                            ),
+                        color =
+                            if (!module.remove && isEnabled) {
+                                ButtonDefaults.filledTonalButtonColors().containerColor
+                            } else {
+                                ButtonDefaults.filledTonalButtonColors().disabledContainerColor
+                            },
+                        contentColor = if (!module.remove && isEnabled) {
+                            ButtonDefaults.filledTonalButtonColors().contentColor
+                        } else {
+                            ButtonDefaults.filledTonalButtonColors().disabledContentColor
+                        },
                     ) {
                         Icon(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(12.dp, 7.dp, 12.dp, 7.dp),
                             imageVector = Icons.AutoMirrored.TwoTone.Wysiwyg,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     }
                 }
@@ -1457,39 +1490,61 @@ fun ModuleItem(
                 Spacer(modifier = Modifier.weight(1f, true))
 
                 if (updateUrl.isNotEmpty()) {
-                    Button(
-                        modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
-                        enabled = !module.remove,
-                        onClick = { onUpdate(module) },
-                        shape = ButtonDefaults.textShape,
-                        contentPadding = PaddingValues(
-                            start = 12.dp,
-                            top = 7.dp,
-                            end = 12.dp,
-                            bottom = 7.dp,
-                        ),
+                    Surface(
+                        modifier = Modifier
+                            .padding(vertical = 5.dp)
+                            .defaultMinSize(minWidth = 52.dp, minHeight = 32.dp)
+                            .clip(ButtonDefaults.filledTonalShape)
+                            .clickable {
+                                onUpdate(module)
+                            },
+                        color =
+                            if (!module.remove) {
+                                ButtonDefaults.filledTonalButtonColors().containerColor
+                            } else {
+                                ButtonDefaults.filledTonalButtonColors().disabledContainerColor
+                            },
+                        contentColor = if (!module.remove) {
+                            ButtonDefaults.filledTonalButtonColors().contentColor
+                        } else {
+                            ButtonDefaults.filledTonalButtonColors().disabledContentColor
+                        },
                     ) {
                         Icon(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(12.dp, 7.dp, 12.dp, 7.dp),
                             imageVector = Icons.TwoTone.Download,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     }
                 }
 
-                FilledTonalButton(
-                    modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
-                    onClick = { onUninstallClicked(module) },
-                    contentPadding = PaddingValues(
-                        start = 12.dp,
-                        top = 9.dp,
-                        end = 12.dp,
-                        bottom = 7.dp,
-                    ),
+                Surface(
+                    modifier = Modifier
+                        .padding(vertical = 5.dp)
+                        .defaultMinSize(minWidth = 52.dp, minHeight = 32.dp)
+                        .clip(ButtonDefaults.filledTonalShape)
+                        .clickable {
+                            onUninstallClicked(module)
+                        },
+                    color =
+                        if (!module.remove) {
+                            ButtonDefaults.filledTonalButtonColors().containerColor
+                        } else {
+                            ButtonDefaults.filledTonalButtonColors().disabledContainerColor
+                        },
+                    contentColor = if (!module.remove) {
+                        ButtonDefaults.filledTonalButtonColors().contentColor
+                    } else {
+                        ButtonDefaults.filledTonalButtonColors().disabledContentColor
+                    },
                 ) {
                     if (!module.remove) {
                         Icon(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(12.dp, 7.dp, 12.dp, 7.dp),
                             imageVector = Icons.TwoTone.Delete,
                             contentDescription = null,
                         )
@@ -1497,9 +1552,10 @@ fun ModuleItem(
                         Icon(
                             modifier = Modifier
                                 .size(20.dp)
-                                .rotate(180f),
+                                .rotate(180f)
+                                .padding(12.dp, 7.dp, 12.dp, 7.dp),
                             imageVector = Icons.TwoTone.Refresh,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     }
                 }
@@ -1510,7 +1566,7 @@ fun ModuleItem(
 
 @Preview
 @Composable
-fun ModuleItemPreview() {
+private fun ModuleItemPreview() {
     val module = InstalledModule(
         id = "id",
         name = "name",
@@ -1528,7 +1584,7 @@ fun ModuleItemPreview() {
         actionIconPath = null,
         webUiIconPath = null,
         dirId = "dirId",
-        moduleUpdate = null
+        moduleUpdate = null,
     )
     ModuleItem(
         koinViewModel<ModuleViewModel>(),
@@ -1539,7 +1595,7 @@ fun ModuleItemPreview() {
         { true },
         {},
         {},
-        {},
+        { _, _ -> },
         false,
     )
 }

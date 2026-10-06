@@ -1,4 +1,4 @@
-package com.agnessu.yakayn.ui.util.module
+package com.agnessu.yakayn.ui.util
 
 import android.app.AppOpsManager
 import android.content.ComponentName
@@ -19,25 +19,38 @@ import com.agnessu.yakayn.R
 import com.agnessu.yakayn.data.AppSettingsRepository
 import com.agnessu.yakayn.data.shell.ShortcutRepository
 import com.agnessu.yakayn.ui.MainActivity
-import com.agnessu.yakayn.ui.util.isColorOS
-import com.agnessu.yakayn.ui.util.isHyperOS
-import com.agnessu.yakayn.ui.util.isMiui
-import com.agnessu.yakayn.ui.webui.WebUIActivity
+import com.agnessu.yakayn.ui.screen.main.ShortcutType
 
 class Shortcut(
     private val settings: AppSettingsRepository,
     private val shortcutRepository: ShortcutRepository,
 ) {
-
     private companion object {
-        const val TAG = "ModuleShortcut"
+        private const val TAG = "ModuleShortcut"
+        const val SCHEME_KSU = "ksu"
+        const val HOST_ACTION = "action"
+        const val HOST_WEBUI = "webui"
+    }
+
+    fun buildShortcutUri(moduleId: String, type: ShortcutType, intentToken: String): Uri {
+        val host = when (type) {
+            ShortcutType.Action -> HOST_ACTION
+            ShortcutType.WebUI -> HOST_WEBUI
+        }
+        return Uri.Builder()
+            .scheme(SCHEME_KSU)
+            .authority(host)
+            .appendQueryParameter("id", moduleId)
+            .appendQueryParameter("token", intentToken)
+            .build()
     }
 
     fun createModuleActionShortcut(
         context: Context,
         moduleId: String,
         name: String,
-        iconUri: String?
+        iconUri: String?,
+        intentToken: String,
     ) {
         val usingAltIcon = settings.getBoolean("use_alt_icon", false)
         val mainActivity = ComponentName(context, MainActivity::class.java.name)
@@ -47,8 +60,7 @@ class Shortcut(
         val shortcutIntent = Intent().apply {
             component = if (usingAltIcon) mainActivityAlias else mainActivity
             action = Intent.ACTION_VIEW
-            putExtra("shortcut_type", "module_action")
-            putExtra("module_id", moduleId)
+            data = buildShortcutUri(moduleId, ShortcutType.Action, intentToken)
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         createModuleShortcut(
@@ -58,7 +70,7 @@ class Shortcut(
             iconUri = iconUri,
             shortcutId = shortcutId,
             shortcutIntent = shortcutIntent,
-            logPrefix = "createModuleActionShortcut"
+            logPrefix = "createModuleActionShortcut",
         )
     }
 
@@ -66,16 +78,13 @@ class Shortcut(
         context: Context,
         moduleId: String,
         name: String,
-        iconUri: String?
+        iconUri: String?,
+        intentToken: String,
     ) {
         val shortcutId = "module_webui_$moduleId"
-
-        val shortcutIntent = Intent(context, WebUIActivity::class.java).apply {
+        val shortcutIntent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_VIEW
-            data = "kernelsu://webui/$moduleId".toUri()
-            putExtra("id", moduleId)
-            putExtra("name", name)
-            putExtra("from_webui_shortcut", true)
+            data = buildShortcutUri(moduleId, ShortcutType.WebUI, intentToken)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         }
         createModuleShortcut(
@@ -85,7 +94,7 @@ class Shortcut(
             iconUri = iconUri,
             shortcutId = shortcutId,
             shortcutIntent = shortcutIntent,
-            logPrefix = "createModuleWebUiShortcut"
+            logPrefix = "createModuleWebUiShortcut",
         )
     }
 
@@ -96,7 +105,7 @@ class Shortcut(
         iconUri: String?,
         shortcutId: String,
         shortcutIntent: Intent,
-        logPrefix: String
+        logPrefix: String,
     ) {
         val hasPinned = hasPinnedShortcut(context, shortcutId)
         Log.d(TAG, "$logPrefix: shortcutId=$shortcutId, hasPinned=$hasPinned")
@@ -146,7 +155,7 @@ class Shortcut(
             Toast.makeText(
                 context,
                 context.getString(R.string.module_shortcut_not_supported),
-                Toast.LENGTH_LONG
+                Toast.LENGTH_LONG,
             ).show()
             return
         }
@@ -166,7 +175,7 @@ class Shortcut(
             Toast.makeText(
                 context,
                 context.getString(R.string.module_shortcut_created),
-                Toast.LENGTH_SHORT
+                Toast.LENGTH_SHORT,
             ).show()
         } else {
             Log.w(TAG, "$logPrefix: pinned shortcut not created, showing permission hint for moduleId=$moduleId")
@@ -205,7 +214,9 @@ class Shortcut(
                     shortcutRepository.openRootFile(path)?.use { input ->
                         BitmapFactory.decodeStream(input)
                     }
-                } else null
+                } else {
+                    null
+                }
             } else {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     BitmapFactory.decodeStream(input)
@@ -254,19 +265,17 @@ class Shortcut(
         return IconCompat.createWithBitmap(bitmap)
     }
 
-    private fun hasPinnedShortcut(context: Context, id: String): Boolean {
-        return try {
-            val shortcuts = ShortcutManagerCompat.getShortcuts(
-                context,
-                ShortcutManagerCompat.FLAG_MATCH_PINNED
-            )
-            val exists = shortcuts.any { it.id == id && it.isEnabled }
-            Log.d(TAG, "hasPinnedShortcut: id=$id, exists=$exists")
-            exists
-        } catch (t: Throwable) {
-            Log.w(TAG, "hasPinnedShortcut: exception for id=$id: ${t.message}", t)
-            false
-        }
+    private fun hasPinnedShortcut(context: Context, id: String): Boolean = try {
+        val shortcuts = ShortcutManagerCompat.getShortcuts(
+            context,
+            ShortcutManagerCompat.FLAG_MATCH_PINNED,
+        )
+        val exists = shortcuts.any { it.id == id && it.isEnabled }
+        Log.d(TAG, "hasPinnedShortcut: id=$id, exists=$exists")
+        exists
+    } catch (t: Throwable) {
+        Log.w(TAG, "hasPinnedShortcut: exception for id=$id: ${t.message}", t)
+        false
     }
 
     private fun deleteShortcut(context: Context, id: String) {
@@ -288,7 +297,7 @@ class Shortcut(
         Granted,
         Denied,
         Ask,
-        Unknown
+        Unknown,
     }
 
     private fun checkMiuiShortcutPermission(context: Context): ShortcutPermissionState {
@@ -303,7 +312,7 @@ class Shortcut(
                 "checkOpNoThrow",
                 Integer.TYPE,
                 Integer.TYPE,
-                String::class.java
+                String::class.java,
             )
             val result = method.invoke(appOps, 10017, uid, pkg)?.toString()
             if (result == null) {
@@ -368,12 +377,10 @@ class Shortcut(
         }
     }
 
-    private fun getShortcutPermissionState(context: Context): ShortcutPermissionState {
-        return when {
-            isMiui() || isHyperOS() -> checkMiuiShortcutPermission(context)
-            isColorOS() -> checkOppoShortcutPermission(context)
-            else -> ShortcutPermissionState.Unknown
-        }
+    private fun getShortcutPermissionState(context: Context): ShortcutPermissionState = when {
+        isMiui() || isHyperOS() -> checkMiuiShortcutPermission(context)
+        isColorOS() -> checkOppoShortcutPermission(context)
+        else -> ShortcutPermissionState.Unknown
     }
 
     private fun showShortcutPermissionHint(context: Context) {

@@ -2,6 +2,17 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.agnessu.yakayn.domain.model.AppControlAction
 import com.agnessu.yakayn.domain.model.AppProfile
 import com.agnessu.yakayn.domain.model.InstalledAppGroup
@@ -14,17 +25,6 @@ import com.agnessu.yakayn.domain.usecase.GetSuperUserAppGroupUseCase
 import com.agnessu.yakayn.domain.usecase.SetAppProfileUseCase
 import com.agnessu.yakayn.domain.usecase.SetAppSepolicyUseCase
 import com.agnessu.yakayn.domain.usecase.ValidateSepolicyUseCase
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 data class AppProfileUiState(
     val appGroup: InstalledAppGroup? = null,
@@ -83,7 +83,7 @@ class AppProfileViewModel(
                     } else if (profile.allowSu) {
                         profile.copy(
                             rules = runCatching { getSepolicy(packageName) }
-                                .getOrDefault(profile.rules)
+                                .getOrDefault(profile.rules),
                         )
                     } else {
                         profile

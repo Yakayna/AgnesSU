@@ -2,7 +2,6 @@ package com.agnessu.yakayn.data.packageinfo
 
 import android.app.Application
 import androidx.core.content.pm.PackageInfoCompat
-import com.agnessu.yakayn.domain.model.InstalledPackageInfo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.agnessu.yakayn.domain.model.InstalledPackageInfo
 
 class InstalledPackageRepository(
     application: Application,

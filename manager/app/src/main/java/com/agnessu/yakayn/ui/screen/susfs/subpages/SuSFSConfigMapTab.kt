@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.ui.component.settings.SettingsJumpPageWidget
 import com.agnessu.yakayn.ui.component.settings.SettingsTextFieldWidget
@@ -39,7 +40,6 @@ import com.agnessu.yakayn.ui.viewmodel.SuSFSUiAction
 import com.agnessu.yakayn.ui.viewmodel.SuSFSViewModel
 import com.agnessu.yakayn.ui.viewmodel.awaitSuSFSBoolean
 import com.agnessu.yakayn.ui.viewmodel.awaitSuSFSConfig
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,7 +147,8 @@ fun SusMapTab(
                 paths.forEach { path ->
                     if (awaitSuSFSBoolean(configHelper) { reply ->
                             SuSFSUiAction.AddSusMap(path, reply)
-                        }) {
+                        }
+                    ) {
                         successCount++
                     } else {
                         failCount++
@@ -183,12 +184,12 @@ fun SusMapTab(
                     enabled = !isLoading,
                     lineLimits = TextFieldLineLimits.MultiLine(
                         minHeightInLines = 4,
-                        maxHeightInLines = 8
+                        maxHeightInLines = 8,
                     ),
-                    renderBackgroundBlur = false
+                    renderBackgroundBlur = false,
                 )
             }
-        }
+        },
     )
 
     detailItem?.let { path ->

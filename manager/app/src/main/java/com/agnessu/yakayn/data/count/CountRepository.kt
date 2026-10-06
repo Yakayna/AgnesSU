@@ -1,12 +1,12 @@
 package com.agnessu.yakayn.data.count
 
-import com.agnessu.yakayn.data.shell.KsuCliRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import com.agnessu.yakayn.data.shell.KsuCliRepository
 
 data class CountState(
     val superuserCount: Int = 0,

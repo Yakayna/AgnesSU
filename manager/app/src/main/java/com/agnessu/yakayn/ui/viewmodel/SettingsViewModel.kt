@@ -4,6 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
+import java.util.Locale
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.model.AppearanceSetting
 import com.agnessu.yakayn.domain.model.PlatformSetting
@@ -19,22 +28,14 @@ import com.agnessu.yakayn.domain.usecase.SetSelinuxHideEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetSuEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.UpdateAppearanceUseCase
 import com.agnessu.yakayn.domain.usecase.UpdatePlatformSettingUseCase
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import java.util.Locale
 
 enum class PredictiveBackAnimation(val value: String) {
     None("none"),
     AOSP("aosp"),
     MIUIX("miuix"),
     Scale("scale"),
-    KernelSUClassic("ksu_classic");
+    KernelSUClassic("ksu_classic"),
+    ;
 
     companion object {
         fun fromValueOrDefault(value: String) = entries.find { it.value == value } ?: Scale
@@ -44,11 +45,11 @@ enum class PredictiveBackAnimation(val value: String) {
 enum class PredictiveBackExitDirection(val value: String) {
     FOLLOW_GESTURE("follow_gesture"),
     ALWAYS_RIGHT("always_right"),
-    ALWAYS_LEFT("always_left");
+    ALWAYS_LEFT("always_left"),
+    ;
 
     companion object {
-        fun fromValueOrDefault(value: String) =
-            entries.find { it.value == value } ?: FOLLOW_GESTURE
+        fun fromValueOrDefault(value: String) = entries.find { it.value == value } ?: FOLLOW_GESTURE
     }
 }
 
@@ -99,6 +100,8 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val useSoftReboot: Boolean = false,
+    val enableSwipeDismiss: Boolean = true,
+    val pagerInterceptionMode: Int = 1,
 )
 
 sealed interface SettingsUiAction {
@@ -138,6 +141,8 @@ sealed interface SettingsUiAction {
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetUseSoftReboot(val enabled: Boolean) : SettingsUiAction
+    data class SetSwipeDismiss(val enabled: Boolean) : SettingsUiAction
+    data class SetPagerInterceptionMode(val index: Int) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -168,7 +173,7 @@ class SettingsViewModel(
         dispatch(SettingsUiAction.Initialize)
     }
 
-fun initialize() {
+    fun initialize() {
         applySnapshot(loadSettings(), resetTempDpi = true)
         loadFeatureSettings()
     }
@@ -182,7 +187,13 @@ fun initialize() {
             val features = getKernelFeatureSettings()
             val platform = getPlatformFeatureStatus()
             val suCompatMode = platform.suCompatPersistValue?.let { value ->
-                if (value == 0L) 2 else if (!features.suEnabled) 1 else 0
+                if (value == 0L) {
+                    2
+                } else if (!features.suEnabled) {
+                    1
+                } else {
+                    0
+                }
             } ?: if (!features.suEnabled) 1 else 0
             mutableState.update {
                 it.copy(
@@ -212,11 +223,9 @@ fun initialize() {
         updatePlatformAsync(PlatformSetting.PredictiveBackExitDirection(direction.value))
     }
 
-    fun setThemeColorDialogVisible(visible: Boolean) =
-        mutableState.update { it.copy(showThemeColorDialog = visible) }
+    fun setThemeColorDialogVisible(visible: Boolean) = mutableState.update { it.copy(showThemeColorDialog = visible) }
 
-    fun setLanguageDialogVisible(visible: Boolean) =
-        mutableState.update { it.copy(showLanguageDialog = visible) }
+    fun setLanguageDialogVisible(visible: Boolean) = mutableState.update { it.copy(showLanguageDialog = visible) }
     fun handleLanguageChange(localeTag: String) {
         updatePlatformAsync(PlatformSetting.Locale(localeTag))
     }
@@ -230,8 +239,7 @@ fun initialize() {
         updateAppearanceAsync(AppearanceSetting.ThemeMode(index))
     }
 
-    fun handleThemeColorChange(seedColor: Int) =
-        updateAppearanceAsync(AppearanceSetting.SeedColor(seedColor))
+    fun handleThemeColorChange(seedColor: Int) = updateAppearanceAsync(AppearanceSetting.SeedColor(seedColor))
 
     fun handleDynamicColorChange(enabled: Boolean) {
         mutableState.update { it.copy(useDynamicColor = enabled) }
@@ -264,7 +272,7 @@ fun initialize() {
                 .onSuccess {
                     applySnapshot(it, resetTempDpi = true)
                     mutableEvents.tryEmit(
-                        SettingsUiEvent.Message(R.string.dpi_applied_success, current.tempDpi)
+                        SettingsUiEvent.Message(R.string.dpi_applied_success, current.tempDpi),
                     )
                 }
                 .onFailure(::emitError)
@@ -384,12 +392,13 @@ fun initialize() {
             mutableState.update { it.copy(isSelinuxHideEnabled = checked) }
             when (status) {
                 0 -> Unit
+
                 -11 -> mutableEvents.emit(
-                    SettingsUiEvent.Message(R.string.settings_selinux_hide_reboot_required)
+                    SettingsUiEvent.Message(R.string.settings_selinux_hide_reboot_required),
                 )
 
                 else -> mutableEvents.emit(
-                    SettingsUiEvent.Message(R.string.settings_selinux_hide_failed, status)
+                    SettingsUiEvent.Message(R.string.settings_selinux_hide_failed, status),
                 )
             }
         }
@@ -408,13 +417,18 @@ fun initialize() {
         updatePlatformAsync(PlatformSetting.UseSoftReboot(enabled))
     }
 
-fun dispatch(action: SettingsUiAction) {
+    fun dispatch(action: SettingsUiAction) {
         when (action) {
             SettingsUiAction.Initialize -> initialize()
+
             SettingsUiAction.InitializeFirstRun -> initializeFirstRunSettings()
+
             SettingsUiAction.LoadFeatureSettings -> loadFeatureSettings()
+
             is SettingsUiAction.SetThemeMode -> handleThemeModeChange(action.index)
+
             is SettingsUiAction.SetThemeColor -> handleThemeColorChange(action.color)
+
             is SettingsUiAction.SetThemeColorDialogVisible ->
                 setThemeColorDialogVisible(action.visible)
 
@@ -425,38 +439,77 @@ fun dispatch(action: SettingsUiAction) {
                 setPredictiveBackExitDirection(action.direction)
 
             is SettingsUiAction.SetDynamicColor -> handleDynamicColorChange(action.enabled)
+
             is SettingsUiAction.SetDynamicColorSpec -> handleDynamicColorSpecChange(action.spec)
+
             is SettingsUiAction.SetDynamicPaletteStyle -> handleDynamicPaletteStyleChange(action.style)
+
             is SettingsUiAction.SetCustomBackground -> handleCustomBackground(action.uri)
+
             SettingsUiAction.RemoveCustomBackground -> handleRemoveCustomBackground()
+
             is SettingsUiAction.SetCardAlpha -> handleCardAlphaChange(action.value)
+
             is SettingsUiAction.SetBackgroundDim -> handleBackgroundDimChange(action.value)
+
             SettingsUiAction.SaveCardConfig -> saveCardConfig()
+
             is SettingsUiAction.SetLanguageDialogVisible -> setLanguageDialogVisible(action.visible)
+
             is SettingsUiAction.SetLanguage -> handleLanguageChange(action.localeTag)
+
             SettingsUiAction.RestartActivity -> restartActivityForLanguage()
+
             SettingsUiAction.ApplyDpi -> handleDpiApply()
+
             is SettingsUiAction.SetTempDpi -> updateTempDpi(action.dpi)
+
             is SettingsUiAction.SetAlternateIcon -> handleIconChange(action.enabled)
+
             is SettingsUiAction.SetManagerUpdateCheck -> handleCheckManagerUpdateChange(action.enabled)
+
             is SettingsUiAction.SetBetaUpdateCheck -> handleCheckBetaUpdateChange(action.enabled)
+
             is SettingsUiAction.SetModuleUpdateCheck -> handleCheckModuleUpdateChange(action.enabled)
+
             is SettingsUiAction.SetSuCompatMode -> handleSuCompatModeChange(action.index)
+
             is SettingsUiAction.SetKernelUmount -> handleKernelUmountChange(action.enabled)
+
             is SettingsUiAction.SetAutoJailbreak -> handleAutoJailbreakChange(action.enabled)
+
             is SettingsUiAction.SetSelinuxHide -> handleSelinuxHideChange(action.enabled)
+
             is SettingsUiAction.SetAdbRoot -> handleAdbRootChange(action.enabled)
+
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
+
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)
 
             is SettingsUiAction.SetUseSoftReboot ->
                 handleUseSoftRebootChange(action.enabled)
+
+            is SettingsUiAction.SetSwipeDismiss -> handleSwipeDismissChange(action.enabled)
+
+            is SettingsUiAction.SetPagerInterceptionMode ->
+                handlePagerInterceptionModeChange(action.index)
         }
     }
 
     fun handleBuiltinMonospaceFontChange(checked: Boolean) {
         updatePlatformAsync(PlatformSetting.BuiltinMonospaceFont(checked))
+    }
+
+    fun handleSwipeDismissChange(enabled: Boolean) {
+        mutableState.update { it.copy(enableSwipeDismiss = enabled) }
+        updatePlatformAsync(PlatformSetting.SwipeDismiss(enabled))
+    }
+
+    fun handlePagerInterceptionModeChange(index: Int) {
+        val coerced = index.coerceIn(0, 2)
+        mutableState.update { it.copy(pagerInterceptionMode = coerced) }
+        updatePlatformAsync(PlatformSetting.PagerInterceptionMode(coerced))
     }
 
     private fun updateAppearanceAsync(setting: AppearanceSetting) {
@@ -504,6 +557,8 @@ fun dispatch(action: SettingsUiAction) {
                 autoJailbreakEnabled = snapshot.autoJailbreakEnabled,
                 useBuiltinMonoFont = snapshot.useBuiltinMonoFont,
                 useSoftReboot = snapshot.useSoftReboot,
+                enableSwipeDismiss = snapshot.enableSwipeDismiss,
+                pagerInterceptionMode = snapshot.pagerInterceptionMode,
             )
         }
     }

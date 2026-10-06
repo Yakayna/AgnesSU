@@ -2,7 +2,6 @@ package com.agnessu.yakayn.ui
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -14,18 +13,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.domain.model.StartupState
 import com.agnessu.yakayn.domain.usecase.ApplyLanguageUseCase
 import com.agnessu.yakayn.domain.usecase.EnsureManagerInstalledUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveStartupStateUseCase
 import com.agnessu.yakayn.ui.activity.util.ThemeChangeContentObserver
 import com.agnessu.yakayn.ui.activity.util.ThemeUtils
-import com.agnessu.yakayn.ui.component.ZipFileInfo
 import com.agnessu.yakayn.ui.theme.KernelSUTheme
 import com.agnessu.yakayn.ui.viewmodel.HomeUiAction
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
@@ -36,8 +34,6 @@ import com.agnessu.yakayn.ui.viewmodel.SettingsUiEvent
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
 import com.agnessu.yakayn.ui.viewmodel.SuperUserUiAction
 import com.agnessu.yakayn.ui.viewmodel.SuperUserViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -52,9 +48,6 @@ class MainActivity : ComponentActivity() {
     private val applyLanguage: ApplyLanguageUseCase by inject()
     private val startupState by lazy { observeStartupState() }
 
-    private var showConfirmationDialog: MutableState<Boolean> = mutableStateOf(false)
-    private var pendingZipFiles = mutableStateOf<List<ZipFileInfo>>(emptyList())
-
     private lateinit var themeChangeObserver: ThemeChangeContentObserver
     private var isInitialized = false
 
@@ -62,7 +55,7 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(newBase?.let(applyLanguage::invoke))
     }
 
-    private val intentState = MutableStateFlow(0)
+    private val intentChannel = Channel<Intent>(capacity = Channel.BUFFERED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
@@ -78,10 +71,11 @@ class MainActivity : ComponentActivity() {
             super.onCreate(savedInstanceState)
 
             splashScreen.setKeepOnScreenCondition {
-                shouldKeepStartupSplash(
-                    startupState = startupState.value,
-                    homeInitialDataLoaded = homeViewModel.homeStateRepository.state.value.isInitialDataLoaded,
-                )
+                when (startupState.value) {
+                    StartupState.Loading -> true
+                    StartupState.Ready -> false
+                    is StartupState.Failed -> false
+                }
             }
 
             lifecycleScope.launch { ensureManagerInstalled() }
@@ -112,51 +106,13 @@ class MainActivity : ComponentActivity() {
                 isInitialized = true
             }
 
-            // Check if launched with a ZIP file
-            val zipUri: ArrayList<Uri>? = when (intent?.action) {
-                Intent.ACTION_SEND -> {
-                    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                    }
-                    uri?.let { arrayListOf(it) }
-                }
-
-                Intent.ACTION_SEND_MULTIPLE -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
-                    }
-                }
-
-                else -> when {
-                    intent?.data != null -> arrayListOf(intent.data!!)
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                        intent.getParcelableArrayListExtra("uris", Uri::class.java)
-                    }
-
-                    else -> {
-                        @Suppress("DEPRECATION")
-                        intent.getParcelableArrayListExtra("uris")
-                    }
-                }
-            }
+            if (savedInstanceState == null) intent?.let { intentChannel.trySend(it) }
 
             setContent {
                 KernelSUTheme {
                     when (val state = startupState.collectAsStateWithLifecycle().value) {
                         is StartupState.Failed -> StartupFailureContent(state.message)
-                        else -> NavContainer(
-                            zipUri = zipUri,
-                            intentState = intentState,
-                            settingsViewModel = settingsViewModel,
-                            showConfirmationDialog = showConfirmationDialog,
-                            pendingZipFiles = pendingZipFiles,
-                        )
+                        else -> NavContainer(settingsViewModel, intentChannel)
                     }
                 }
             }
@@ -168,8 +124,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Increment intentState to trigger LaunchedEffect re-execution
-        intentState.value += 1
+        intentChannel.trySend(intent)
     }
 
     private fun initializeViewModels() {

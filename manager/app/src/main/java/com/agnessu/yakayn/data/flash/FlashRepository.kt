@@ -3,14 +3,6 @@ package com.agnessu.yakayn.data.flash
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
-import com.agnessu.yakayn.data.file.ModuleFileRepository
-import com.agnessu.yakayn.data.shell.KsuCliRepository
-import com.agnessu.yakayn.domain.model.FlashOperation
-import com.agnessu.yakayn.domain.model.FlashOperationUpdate
-import com.agnessu.yakayn.domain.model.FlashProgress
-import com.agnessu.yakayn.domain.model.InstallEnvironment
-import com.agnessu.yakayn.domain.model.KernelFlashSession
-import com.agnessu.yakayn.getKernelVersion
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +19,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.agnessu.yakayn.data.file.ModuleFileRepository
+import com.agnessu.yakayn.data.shell.KsuCliRepository
+import com.agnessu.yakayn.domain.model.FlashOperation
+import com.agnessu.yakayn.domain.model.FlashOperationUpdate
+import com.agnessu.yakayn.domain.model.FlashProgress
+import com.agnessu.yakayn.domain.model.InstallEnvironment
+import com.agnessu.yakayn.domain.model.KernelFlashSession
+import com.agnessu.yakayn.getKernelVersion
 
 class FlashRepository(
     private val application: Application,
@@ -81,19 +81,19 @@ class FlashRepository(
                 val abDevice = runCatching { ksuCliRepository.isAbDevice() }.getOrDefault(false)
                 InstallEnvironment(
                     rootAvailable = runCatching { ksuCliRepository.rootAvailable() }.getOrDefault(
-                        false
+                        false,
                     ),
                     isGki = runCatching { getKernelVersion().isGKI() }.getOrDefault(false),
                     isAbDevice = abDevice,
                     currentKmi = runCatching { ksuCliRepository.getCurrentKmi() }.getOrDefault(""),
                     defaultPartition = runCatching { ksuCliRepository.getDefaultPartition() }.getOrDefault(
-                        "boot"
+                        "boot",
                     ),
                     availablePartitions = runCatching { ksuCliRepository.getAvailablePartitions() }.getOrDefault(
-                        emptyList()
+                        emptyList(),
                     ),
                     activeSlotSuffix = runCatching { ksuCliRepository.getSlotSuffix(false) }.getOrDefault(
-                        ""
+                        "",
                     ),
                     inactiveSlotSuffix = if (abDevice) {
                         runCatching { ksuCliRepository.getSlotSuffix(true) }.getOrDefault("")
@@ -101,7 +101,7 @@ class FlashRepository(
                         ""
                     },
                     supportedKmis = runCatching { ksuCliRepository.getSupportedKmis() }.getOrDefault(
-                        emptyList()
+                        emptyList(),
                     ),
                 )
             }.also { mutableInstallEnvironment.value = it }
@@ -143,13 +143,13 @@ class FlashRepository(
                     FlashOperation.Restore -> ksuCliRepository.restoreBoot(
                         onFinish,
                         onStdout,
-                        onStderr
+                        onStderr,
                     )
 
                     FlashOperation.Uninstall -> ksuCliRepository.uninstallPermanently(
                         onFinish,
                         onStdout,
-                        onStderr
+                        onStderr,
                     )
                 }
             }

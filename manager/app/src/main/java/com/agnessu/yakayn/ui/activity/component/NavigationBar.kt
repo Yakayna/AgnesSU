@@ -55,8 +55,6 @@ import com.agnessu.yakayn.ui.util.LocalSelectedPage
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-
 
 @SuppressLint("ContextCastToActivity")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -64,7 +62,7 @@ import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 fun NavigationBar(
     modifier: Modifier = Modifier,
     destinations: List<BottomBarDestination>,
-    isBottomBar: Boolean
+    isBottomBar: Boolean,
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
@@ -82,13 +80,13 @@ fun NavigationBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(
-                    WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)
+                    WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal),
                 )
                 .padding(
                     bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues()
-                        .calculateBottomPadding()
+                        .calculateBottomPadding(),
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             FloatingBottomBar(
                 selectedIndex = pagerState.targetPage,
@@ -100,7 +98,7 @@ fun NavigationBar(
                     FloatingBottomBarItem(
                         selected = index == pagerState.targetPage,
                         onClick = { activateTab(index) },
-                        modifier = Modifier.defaultMinSize(minWidth = 76.dp)
+                        modifier = Modifier.defaultMinSize(minWidth = 76.dp),
                     ) {
                         val contentColor = LocalContentColor.current
                         val count = when (destination) {
@@ -112,7 +110,7 @@ fun NavigationBar(
                             Icon(
                                 imageVector = destination.iconSelected,
                                 contentDescription = stringResource(destination.label),
-                                tint = contentColor
+                                tint = contentColor,
                             )
                         }
                         if (count > 0 && showNavigationBarBadge) {
@@ -127,7 +125,7 @@ fun NavigationBar(
                             lineHeight = 14.sp,
                             maxLines = 1,
                             softWrap = false,
-                            overflow = TextOverflow.Visible
+                            overflow = TextOverflow.Visible,
                         )
                     }
                 }
@@ -137,7 +135,7 @@ fun NavigationBar(
         FlexibleBottomAppBar(
             modifier = modifier
                 .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                 )
                 .blurEffect(
                     compensateHorizontalOverscroll = true,
@@ -145,11 +143,12 @@ fun NavigationBar(
                     useFixedSurfaceBoundsForOverscroll = true,
                 ),
             containerColor =
-                if (themeConfig.isEnableBlur)
+                if (themeConfig.isEnableBlur) {
                     Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
-            contentColor = MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                },
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ) {
             destinations.forEachIndexed { index, destination ->
                 BottomBarNavigationItem(
@@ -168,7 +167,7 @@ fun NavigationBar(
         WideNavigationRail(
             modifier = modifier
                 .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                 )
                 .blurEffect(
                     compensateHorizontalOverscroll = true,
@@ -177,10 +176,11 @@ fun NavigationBar(
                 ),
             colors = WideNavigationRailColors(
                 containerColor =
-                    if (themeConfig.isEnableBlur)
+                    if (themeConfig.isEnableBlur) {
                         Color.Transparent
-                    else
-                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                    },
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modalContainerColor = WideNavigationRailDefaults.colors().modalContainerColor,
                 modalScrimColor = WideNavigationRailDefaults.colors().modalScrimColor,
@@ -225,7 +225,7 @@ private fun NavigationRailItem(
                         module = moduleCount,
                         show = showNavigationBarBadge,
                     )
-                }
+                },
             ) {
                 if (isSelected) {
                     Icon(destination.iconSelected, stringResource(destination.label))
@@ -240,7 +240,7 @@ private fun NavigationRailItem(
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 softWrap = false,
-                overflow = TextOverflow.Visible
+                overflow = TextOverflow.Visible,
             )
         },
     )
@@ -267,7 +267,7 @@ private fun RowScope.BottomBarNavigationItem(
                         module = moduleCount,
                         show = showNavigationBarBadge,
                     )
-                }
+                },
             ) {
                 if (isSelected) {
                     Icon(destination.iconSelected, stringResource(destination.label))
@@ -282,10 +282,10 @@ private fun RowScope.BottomBarNavigationItem(
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,
                 softWrap = false,
-                overflow = TextOverflow.Visible
+                overflow = TextOverflow.Visible,
             )
         },
-        alwaysShowLabel = false
+        alwaysShowLabel = false,
     )
 }
 
@@ -305,10 +305,10 @@ private fun DestinationBadge(
     AnimatedVisibility(
         visible = count > 0 && show,
         enter = fadeIn(),
-        exit = fadeOut()
+        exit = fadeOut(),
     ) {
         Badge(
-            containerColor = MaterialTheme.colorScheme.primary
+            containerColor = MaterialTheme.colorScheme.primary,
         ) {
             Text(count.toString())
         }

@@ -3,13 +3,6 @@ package com.agnessu.yakayn.ui.viewmodel
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.DynamicManagerApp
-import com.agnessu.yakayn.domain.model.DynamicManagerConfig
-import com.agnessu.yakayn.domain.usecase.ClearDynamicManagerUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveDynamicManagerStateUseCase
-import com.agnessu.yakayn.domain.usecase.RefreshDynamicManagerUseCase
-import com.agnessu.yakayn.domain.usecase.SelectDynamicManagerUseCase
-import com.agnessu.yakayn.domain.usecase.SetManualDynamicManagerUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,6 +12,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.DynamicManagerApp
+import com.agnessu.yakayn.domain.model.DynamicManagerConfig
+import com.agnessu.yakayn.domain.usecase.ClearDynamicManagerUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveDynamicManagerStateUseCase
+import com.agnessu.yakayn.domain.usecase.RefreshDynamicManagerUseCase
+import com.agnessu.yakayn.domain.usecase.SelectDynamicManagerUseCase
+import com.agnessu.yakayn.domain.usecase.SetManualDynamicManagerUseCase
 
 typealias DynamicManagerAppItem = DynamicManagerApp
 
@@ -69,7 +69,7 @@ class DynamicManagerViewModel(
             } else {
                 source.apps.filter { app ->
                     app.label.contains(normalized, ignoreCase = true) ||
-                            app.packageName.contains(normalized, ignoreCase = true)
+                        app.packageName.contains(normalized, ignoreCase = true)
                 }
             },
             search = query,
@@ -87,7 +87,9 @@ class DynamicManagerViewModel(
     fun dispatch(action: DynamicManagerUiAction) {
         when (action) {
             DynamicManagerUiAction.Refresh -> viewModelScope.launch { refresh() }
+
             is DynamicManagerUiAction.Search -> search.value = action.query
+
             is DynamicManagerUiAction.SelectApp -> submit(DynamicManagerOperation.Set) {
                 selectDynamicManager(action.app.apkPath)
             }

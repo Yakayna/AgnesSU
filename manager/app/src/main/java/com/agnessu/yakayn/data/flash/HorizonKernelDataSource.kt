@@ -3,16 +3,16 @@ package com.agnessu.yakayn.data.flash
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.data.shell.KsuCliRepository
-import com.agnessu.yakayn.domain.model.FlashProgress
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File
-import java.io.IOException
-import java.util.concurrent.ConcurrentLinkedQueue
+import com.agnessu.yakayn.R
+import com.agnessu.yakayn.data.shell.KsuCliRepository
+import com.agnessu.yakayn.domain.model.FlashProgress
 
 /**
  * @author ShirkNeko
@@ -57,7 +57,7 @@ class HorizonKernelState {
                 progress = 0f,
                 currentStep = "",
                 logs = emptyList(),
-                error = ""
+                error = "",
             )
         }
     }
@@ -67,7 +67,7 @@ class HorizonKernelState {
             it.copy(
                 isFlashing = false,
                 isCompleted = true,
-                progress = 1f
+                progress = 1f,
             )
         }
     }
@@ -108,7 +108,7 @@ class HorizonKernelWorker(
                 zipFile = zipFile,
                 slot = slot,
                 onStdout = ::handleOutput,
-                onStderr = ::handleConsoleOutput
+                onStderr = ::handleConsoleOutput,
             )
             if (!succeeded) {
                 state.setError(context.getString(R.string.flash_failed_message))
@@ -124,7 +124,7 @@ class HorizonKernelWorker(
             state.completeFlashing()
         } catch (error: Exception) {
             state.setError(
-                error.message ?: context.getString(R.string.horizon_unknown_error)
+                error.message ?: context.getString(R.string.horizon_unknown_error),
             )
         } finally {
             if (zipFile.exists()) {

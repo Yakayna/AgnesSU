@@ -1,12 +1,11 @@
 package com.agnessu.yakayn.data.logging
 
 import android.os.SystemClock
-import com.agnessu.yakayn.data.shell.KsuCliRepository
-import com.agnessu.yakayn.domain.model.SulogFile
-import com.agnessu.yakayn.domain.model.SulogState
-import com.agnessu.yakayn.domain.model.parseSulogLines
 import com.topjohnwu.superuser.io.SuFile
 import com.topjohnwu.superuser.io.SuFileInputStream
+import java.io.InputStreamReader
+import java.time.LocalDate
+import java.util.ArrayDeque
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -17,9 +16,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.InputStreamReader
-import java.time.LocalDate
-import java.util.ArrayDeque
+import com.agnessu.yakayn.data.shell.KsuCliRepository
+import com.agnessu.yakayn.domain.model.SulogFile
+import com.agnessu.yakayn.domain.model.SulogState
+import com.agnessu.yakayn.domain.model.parseSulogLines
 
 class SulogRepository(
     private val ksuCliRepository: KsuCliRepository,
@@ -40,6 +40,7 @@ class SulogRepository(
                 currentCoroutineContext().ensureActive()
                 val selectedFile = when {
                     files.isEmpty() -> null
+
                     preferredFilePath != null ->
                         files.firstOrNull { it.path == preferredFilePath } ?: files.first()
 
@@ -98,7 +99,7 @@ class SulogRepository(
             Triple(name, date, rotation)
         }.sortedWith(
             compareByDescending<Triple<String, LocalDate, Int>> { it.second }
-                .thenByDescending { it.third }
+                .thenByDescending { it.third },
         ).map { it.first }
         return names.map { SulogFile(name = it, path = "$SULOG_DIR/$it") }
     }

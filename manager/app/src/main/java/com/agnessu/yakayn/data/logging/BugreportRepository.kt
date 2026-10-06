@@ -1,8 +1,8 @@
 package com.agnessu.yakayn.data.logging
 
 import android.app.Application
-import com.agnessu.yakayn.data.shell.KsuCliRepository
 import java.io.File
+import com.agnessu.yakayn.data.shell.KsuCliRepository
 
 class BugreportRepository(
     private val application: Application,

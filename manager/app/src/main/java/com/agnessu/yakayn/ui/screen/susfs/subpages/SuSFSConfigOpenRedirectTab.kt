@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.model.OpenRedirectItem
 import com.agnessu.yakayn.domain.model.UidScheme
@@ -40,7 +41,6 @@ import com.agnessu.yakayn.ui.viewmodel.SuSFSUiAction
 import com.agnessu.yakayn.ui.viewmodel.SuSFSViewModel
 import com.agnessu.yakayn.ui.viewmodel.awaitSuSFSBoolean
 import com.agnessu.yakayn.ui.viewmodel.awaitSuSFSConfig
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,9 +93,7 @@ fun OpenRedirectTab(
     val operationFailedMsg = stringResource(R.string.susfs_operation_failed)
     val selectedUidLabel = uidSchemeOptions.first { it.first == manualUidScheme }.second
 
-    fun UidScheme.localizedLabel(): String {
-        return uidSchemeOptions.first { it.first == this }.second
-    }
+    fun UidScheme.localizedLabel(): String = uidSchemeOptions.first { it.first == this }.second
 
     LazyColumn(
         modifier = Modifier

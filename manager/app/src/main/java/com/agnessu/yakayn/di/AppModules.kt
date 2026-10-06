@@ -1,6 +1,16 @@
 package com.agnessu.yakayn.di
 
 import coil.ImageLoader
+import java.io.File
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import me.zhanghai.android.appiconloader.coil.AppIconFetcher
+import me.zhanghai.android.appiconloader.coil.AppIconKeyer
+import okhttp3.Cache
+import okhttp3.OkHttpClient
 import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.data.AppSettingsRepository
 import com.agnessu.yakayn.data.application.ApplicationControlRepository
@@ -151,7 +161,7 @@ import com.agnessu.yakayn.ui.component.ZipFileDetector
 import com.agnessu.yakayn.ui.theme.BackgroundManager
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
-import com.agnessu.yakayn.ui.util.module.Shortcut
+import com.agnessu.yakayn.ui.util.Shortcut
 import com.agnessu.yakayn.ui.viewmodel.AppProfileViewModel
 import com.agnessu.yakayn.ui.viewmodel.DynamicManagerViewModel
 import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionViewModel
@@ -171,13 +181,6 @@ import com.agnessu.yakayn.ui.viewmodel.TemplateEditorViewModel
 import com.agnessu.yakayn.ui.viewmodel.TemplateViewModel
 import com.agnessu.yakayn.ui.viewmodel.UmountManagerScreenViewModel
 import com.agnessu.yakayn.ui.webui.MonetColorsProvider
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import me.zhanghai.android.appiconloader.coil.AppIconFetcher
-import me.zhanghai.android.appiconloader.coil.AppIconKeyer
-import okhttp3.Cache
-import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -186,9 +189,6 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import java.io.File
-import java.util.Locale
-import java.util.concurrent.TimeUnit
 
 val applicationScopeQualifier = named("applicationScope")
 
@@ -204,7 +204,7 @@ val coreModule = module {
                     chain.request().newBuilder()
                         .header("User-Agent", "AgnesSU/${BuildConfig.VERSION_CODE}")
                         .header("Accept-Language", Locale.getDefault().toLanguageTag())
-                        .build()
+                        .build(),
                 )
             }
             .connectTimeout(5, TimeUnit.SECONDS)

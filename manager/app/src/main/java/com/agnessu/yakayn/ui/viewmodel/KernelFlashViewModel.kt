@@ -2,12 +2,6 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.FlashProgress
-import com.agnessu.yakayn.domain.usecase.GetBooleanPreferenceUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveKernelFlashUseCase
-import com.agnessu.yakayn.domain.usecase.RebootUseCase
-import com.agnessu.yakayn.domain.usecase.RemovePreferenceUseCase
-import com.agnessu.yakayn.domain.usecase.StartKernelFlashUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +11,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.FlashProgress
+import com.agnessu.yakayn.domain.usecase.GetBooleanPreferenceUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveKernelFlashUseCase
+import com.agnessu.yakayn.domain.usecase.RebootUseCase
+import com.agnessu.yakayn.domain.usecase.RemovePreferenceUseCase
+import com.agnessu.yakayn.domain.usecase.StartKernelFlashUseCase
 
 data class KernelFlashUiState(
     val requestUri: String? = null,
@@ -63,6 +63,7 @@ class KernelFlashViewModel(
     fun dispatch(action: KernelFlashUiAction) {
         when (action) {
             is KernelFlashUiAction.Start -> startKernelFlash(action.uri, action.selectedSlot, action.skipKsud)
+
             KernelFlashUiAction.ConsumeAutoExit -> {
                 removePreference(AUTO_EXIT_KEY)
                 autoExit.value = false

@@ -35,16 +35,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.agnessu.yakayn.R
-import java.io.BufferedReader
 import java.io.InputStream
-import java.io.InputStreamReader
-import java.util.zip.ZipInputStream
+import com.agnessu.yakayn.R
+import com.agnessu.yakayn.data.file.withInstallArchive
 
 enum class ZipType {
     MODULE,
     KERNEL,
-    UNKNOWN;
+    UNKNOWN,
+    ;
 
     companion object {
         fun detect(files: Set<String>): ZipType = when {
@@ -64,7 +63,7 @@ data class ZipFileInfo(
     val author: String = "",
     val description: String = "",
     val kernelVersion: String = "",
-    val supported: String = ""
+    val supported: String = "",
 )
 
 class ZipFileDetector {
@@ -72,36 +71,21 @@ class ZipFileDetector {
         var zipInfo = ZipFileInfo(uri = uri, type = ZipType.MODULE)
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                ZipInputStream(inputStream).use { zipStream ->
-                    var entry = zipStream.nextEntry
-                    while (entry != null) {
-                        if (entry.name.lowercase() == "module.prop" || entry.name.endsWith("/module.prop")) {
-                            val reader = BufferedReader(InputStreamReader(zipStream))
-                            val props = mutableMapOf<String, String>()
+            withInstallArchive(context, uri) { zip ->
+                val entries = zip.entries
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    if (entry.name.lowercase() == "module.prop" || entry.name.endsWith("/module.prop")) {
+                        val props = zip.getInputStream(entry).use(::parseSimpleProps)
 
-                            var line = reader.readLine()
-                            while (line != null) {
-                                if (line.contains("=") && !line.startsWith("#")) {
-                                    val parts = line.split("=", limit = 2)
-                                    if (parts.size == 2) {
-                                        props[parts[0].trim()] = parts[1].trim()
-                                    }
-                                }
-                                line = reader.readLine()
-                            }
-
-                            zipInfo = zipInfo.copy(
-                                name = props["name"] ?: context.getString(R.string.unknown_module),
-                                version = props["version"] ?: "",
-                                versionCode = props["versionCode"] ?: "",
-                                author = props["author"] ?: "",
-                                description = props["description"] ?: ""
-                            )
-                            break
-                        }
-                        zipStream.closeEntry()
-                        entry = zipStream.nextEntry
+                        zipInfo = zipInfo.copy(
+                            name = props["name"] ?: context.getString(R.string.unknown_module),
+                            version = props["version"] ?: "",
+                            versionCode = props["versionCode"] ?: "",
+                            author = props["author"] ?: "",
+                            description = props["description"] ?: "",
+                        )
+                        break
                     }
                 }
             }
@@ -147,24 +131,21 @@ class ZipFileDetector {
         val foundFiles = mutableSetOf<String>()
 
         try {
-            context.contentResolver.openInputStream(uri)?.use { fis ->
-                ZipInputStream(fis).use { zis ->
-                    var entry = zis.nextEntry
-                    while (entry != null) {
-                        val name = entry.name
-                        foundFiles.add(name)
+            withInstallArchive(context, uri) { zip ->
+                val entries = zip.entries
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    val name = entry.name
+                    foundFiles.add(name)
 
-                        when {
-                            name.endsWith("module.prop") -> {
-                                props.putAll(parseSimpleProps(zis))
-                            }
-
-                            name.endsWith("anykernel.sh") -> {
-                                props.putAll(parseShellVariables(zis))
-                            }
+                    when {
+                        name.endsWith("module.prop") -> {
+                            zip.getInputStream(entry).use { props.putAll(parseSimpleProps(it)) }
                         }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
+
+                        name.endsWith("anykernel.sh") -> {
+                            zip.getInputStream(entry).use { props.putAll(parseShellVariables(it)) }
+                        }
                     }
                 }
             }
@@ -181,7 +162,7 @@ class ZipFileDetector {
             version = props["version"] ?: props["kernel.version"] ?: "",
             author = props["author"] ?: props["kernel.author"] ?: "",
             description = props["description"] ?: "",
-            supported = props["supported.versions"] ?: ""
+            supported = props["supported.versions"] ?: "",
         )
     }
 }
@@ -191,7 +172,7 @@ fun InstallConfirmationDialog(
     show: Boolean,
     zipFiles: List<ZipFileInfo>,
     onConfirm: (List<ZipFileInfo>) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     if (show && zipFiles.isNotEmpty()) {
         AlertDialog(
@@ -199,14 +180,17 @@ fun InstallConfirmationDialog(
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(
-                        imageVector = if (zipFiles.any { it.type == ZipType.KERNEL })
-                            Icons.TwoTone.Memory else Icons.TwoTone.Extension,
+                        imageVector = if (zipFiles.any { it.type == ZipType.KERNEL }) {
+                            Icons.TwoTone.Memory
+                        } else {
+                            Icons.TwoTone.Extension
+                        },
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(24.dp),
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
@@ -215,7 +199,7 @@ fun InstallConfirmationDialog(
                         } else {
                             stringResource(R.string.confirm_multiple_installation, zipFiles.size)
                         },
-                        style = MaterialTheme.typography.headlineSmall
+                        style = MaterialTheme.typography.headlineSmall,
                     )
                 }
             },
@@ -224,7 +208,7 @@ fun InstallConfirmationDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(zipFiles.size) { index ->
                         val zipFile = zipFiles[index]
@@ -236,13 +220,13 @@ fun InstallConfirmationDialog(
                 Button(
                     onClick = { onConfirm(zipFiles) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
+                        containerColor = MaterialTheme.colorScheme.primary,
+                    ),
                 ) {
                     Icon(
                         imageVector = Icons.TwoTone.GetApp,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.install_confirm))
@@ -252,11 +236,11 @@ fun InstallConfirmationDialog(
                 TextButton(onClick = onDismiss) {
                     Text(
                         stringResource(android.R.string.cancel),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },
-            modifier = Modifier.widthIn(min = 320.dp, max = 560.dp)
+            modifier = Modifier.widthIn(min = 320.dp, max = 560.dp),
         )
     }
 }
@@ -270,18 +254,18 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                 ZipType.MODULE -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                 ZipType.KERNEL -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
                 else -> MaterialTheme.colorScheme.surfaceBright
-            }
+            },
         ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 0.dp),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(
                     imageVector = when (zipFile.type) {
@@ -295,7 +279,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                         ZipType.KERNEL -> MaterialTheme.colorScheme.tertiary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -309,7 +293,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                         },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = when (zipFile.type) {
@@ -318,19 +302,19 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                             else -> stringResource(R.string.unknown_package)
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
             // 详细信息
             if (zipFile.version.isNotEmpty() || zipFile.author.isNotEmpty() ||
-                zipFile.description.isNotEmpty() || zipFile.supported.isNotEmpty()) {
-
+                zipFile.description.isNotEmpty() || zipFile.supported.isNotEmpty()
+            ) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    thickness = 0.5.dp
+                    thickness = 0.5.dp,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -338,7 +322,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                 if (zipFile.version.isNotEmpty()) {
                     InfoRow(
                         label = stringResource(R.string.version),
-                        value = zipFile.version + if (zipFile.versionCode.isNotEmpty()) " (${zipFile.versionCode})" else ""
+                        value = zipFile.version + if (zipFile.versionCode.isNotEmpty()) " (${zipFile.versionCode})" else "",
                     )
                 }
 
@@ -346,7 +330,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                 if (zipFile.author.isNotEmpty()) {
                     InfoRow(
                         label = stringResource(R.string.author),
-                        value = zipFile.author
+                        value = zipFile.author,
                     )
                 }
 
@@ -354,7 +338,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                 if (zipFile.description.isNotEmpty() && zipFile.type == ZipType.MODULE) {
                     InfoRow(
                         label = stringResource(R.string.description),
-                        value = zipFile.description
+                        value = zipFile.description,
                     )
                 }
 
@@ -362,7 +346,7 @@ fun InstallItemCard(zipFile: ZipFileInfo) {
                 if (zipFile.supported.isNotEmpty() && zipFile.type == ZipType.KERNEL) {
                     InfoRow(
                         label = stringResource(R.string.supported_devices),
-                        value = zipFile.supported
+                        value = zipFile.supported,
                     )
                 }
             }
@@ -376,20 +360,20 @@ fun InfoRow(label: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 2.dp),
-        verticalAlignment = Alignment.Top
+        verticalAlignment = Alignment.Top,
     ) {
         Text(
             text = "$label:",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(min = 60.dp)
+            modifier = Modifier.widthIn(min = 60.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
     }
 }

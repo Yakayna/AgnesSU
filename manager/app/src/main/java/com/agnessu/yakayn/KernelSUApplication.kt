@@ -3,10 +3,10 @@ package com.agnessu.yakayn
 import android.app.Application
 import android.os.Build
 import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
-import com.agnessu.yakayn.di.appModules
-import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import com.agnessu.yakayn.di.appModules
+import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.core.context.startKoin

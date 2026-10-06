@@ -45,7 +45,6 @@ import androidx.compose.material.icons.twotone.Science
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
-import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -77,6 +76,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.usecase.GenerateBugreportUseCase
@@ -101,13 +105,8 @@ import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
 import com.agnessu.yakayn.ui.viewmodel.SettingsUiAction
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 /**
  * @author ShirkNeko
@@ -140,12 +139,12 @@ fun SettingsPage(bottomPadding: Dp) {
         snackbarHost = {
             SwipeableSnackbarHost(
                 modifier = Modifier.padding(bottom = bottomPadding),
-                hostState = snackBarHost
+                hostState = snackBarHost,
             )
         },
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = adaptiveScaffoldWindowInsets(includeBottom = false)
+        contentWindowInsets = adaptiveScaffoldWindowInsets(includeBottom = false),
     ) { innerPadding ->
         val loadingDialog = rememberLoadingDialog()
         var showBottomsheet by remember { mutableStateOf(false) }
@@ -153,7 +152,7 @@ fun SettingsPage(bottomPadding: Dp) {
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val exportBugreportLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.CreateDocument("application/gzip")
+            ActivityResultContracts.CreateDocument("application/gzip"),
         ) { uri: Uri? ->
             if (uri == null) return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
@@ -177,28 +176,9 @@ fun SettingsPage(bottomPadding: Dp) {
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 start = 0.dp,
                 end = 0.dp,
-                bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp
-            )
+                bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp,
+            ),
         ) {
-            // 特别功能 (Đặc biệt / Special)
-            item {
-                SegmentedColumn(
-                    title = stringResource(R.string.special_category),
-                    content = {
-                        item {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Star,
-                                title = stringResource(R.string.install_libtgpa_title),
-                                description = stringResource(R.string.install_libtgpa_summary),
-                                onClick = {
-                                    navigator.push(Route.InstallLibtgpa)
-                                }
-                            )
-                        }
-                    }
-                )
-            }
-
             // 配置卡片
             if (homeState.systemStatus.isFullFeatured) {
                 item {
@@ -219,7 +199,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                     description = stringResource(R.string.settings_profile_template_summary),
                                     onClick = {
                                         navigator.push(Route.AppProfileTemplate)
-                                    }
+                                    },
                                 )
                             }
 
@@ -239,8 +219,8 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onSelectedIndexChange = { index ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetSuCompatMode(
-                                                index
-                                            )
+                                                index,
+                                            ),
                                         )
                                     },
                                 )
@@ -261,15 +241,15 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetKernelUmount(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
                                     },
                                 )
                             }
 
                             item(
-                                visible = homeState.systemStatus.isLateLoadMode
+                                visible = homeState.systemStatus.isLateLoadMode,
                             ) {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.ElectricalServices,
@@ -279,15 +259,15 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { value ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetAutoJailbreak(
-                                                value
-                                            )
+                                                value,
+                                            ),
                                         )
-                                    }
+                                    },
                                 )
                             }
 
                             item(
-                                visible = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q
+                                visible = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q,
                             ) {
                                 val adbRootSummary = when (uiState.adbRootStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
@@ -304,8 +284,8 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetAdbRoot(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
                                     },
                                 )
@@ -322,8 +302,8 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetUseSoftReboot(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
                                     },
                                 )
@@ -362,8 +342,8 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { checked ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetSelinuxHide(
-                                                checked
-                                            )
+                                                checked,
+                                            ),
                                         )
                                     },
                                 )
@@ -379,13 +359,13 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetDefaultUmountModules(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
                                     },
                                 )
                             }
-                        }
+                        },
                     )
                 }
             }
@@ -406,15 +386,15 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetManagerUpdateCheck(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
-                                    }
+                                    },
                                 )
-                            }
+                            },
                         ) {
                             item(
-                                topPadding = 1.dp
+                                topPadding = 1.dp,
                             ) {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.Science,
@@ -424,10 +404,10 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetBetaUpdateCheck(
-                                                enabled
-                                            )
+                                                enabled,
+                                            ),
                                         )
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -441,10 +421,10 @@ fun SettingsPage(bottomPadding: Dp) {
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetModuleUpdateCheck(
-                                            enabled
-                                        )
+                                            enabled,
+                                        ),
                                     )
-                                }
+                                },
                             )
                         }
 
@@ -456,10 +436,10 @@ fun SettingsPage(bottomPadding: Dp) {
                                 description = stringResource(R.string.theme_settings),
                                 onClick = {
                                     navigator.push(Route.ThemeSettings)
-                                }
+                                },
                             )
                         }
-                    }
+                    },
                 )
             }
 
@@ -474,7 +454,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 title = stringResource(R.string.send_log),
                                 onClick = {
                                     showBottomsheet = true
-                                }
+                                },
                             )
                         }
 
@@ -486,7 +466,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                     description = stringResource(R.string.dynamic_manager_settings_summary),
                                     onClick = {
                                         navigator.push(Route.DynamicManager)
-                                    }
+                                    },
                                 )
                             }
 
@@ -497,7 +477,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                     description = stringResource(R.string.umount_path_manager_summary),
                                     onClick = {
                                         navigator.push(Route.UmountManager)
-                                    }
+                                    },
                                 )
                             }
                         }
@@ -506,7 +486,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 loadingDialog.withLoading(it)
                             }
                         }
-                    }
+                    },
                 )
             }
 
@@ -518,7 +498,7 @@ fun SettingsPage(bottomPadding: Dp) {
                         onSaveLog = {
                             val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH_mm")
                             val current = LocalDateTime.now().format(formatter)
-                            exportBugreportLauncher.launch("KernelSU_bugreport_${current}.tar.gz")
+                            exportBugreportLauncher.launch("KernelSU_bugreport_$current.tar.gz")
                             showBottomsheet = false
                         },
                         onShareLog = {
@@ -532,7 +512,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 val uri = FileProvider.getUriForFile(
                                     context,
                                     "${BuildConfig.APPLICATION_ID}.fileprovider",
-                                    bugreport
+                                    bugreport,
                                 )
 
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -544,13 +524,13 @@ fun SettingsPage(bottomPadding: Dp) {
                                 context.startActivity(
                                     Intent.createChooser(
                                         shareIntent,
-                                        sendLog
-                                    )
+                                        sendLog,
+                                    ),
                                 )
 
                                 showBottomsheet = false
                             }
-                        }
+                        },
                     )
                 }
             }
@@ -566,10 +546,10 @@ fun SettingsPage(bottomPadding: Dp) {
                                 title = stringResource(R.string.about),
                                 onClick = {
                                     navigator.push(Route.About)
-                                }
+                                },
                             )
                         }
-                    }
+                    },
                 )
             }
         }
@@ -581,7 +561,7 @@ fun SettingsPage(bottomPadding: Dp) {
 private fun LogBottomSheet(
     onDismiss: () -> Unit,
     onSaveLog: () -> Unit,
-    onShareLog: () -> Unit
+    onShareLog: () -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -591,18 +571,18 @@ private fun LogBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(SPACING_LARGE),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             LogActionButton(
                 icon = Icons.TwoTone.Save,
                 text = stringResource(R.string.save_log),
-                onClick = onSaveLog
+                onClick = onSaveLog,
             )
 
             LogActionButton(
                 icon = Icons.TwoTone.Share,
                 text = stringResource(R.string.send_log),
-                onClick = onShareLog
+                onClick = onShareLog,
             )
         }
         Spacer(modifier = Modifier.height(SPACING_LARGE))
@@ -613,32 +593,32 @@ private fun LogBottomSheet(
 fun LogActionButton(
     icon: ImageVector,
     text: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(SPACING_MEDIUM)
+            .padding(SPACING_MEDIUM),
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
+                .background(MaterialTheme.colorScheme.primaryContainer),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = text,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(24.dp),
             )
         }
         Spacer(modifier = Modifier.height(SPACING_MEDIUM))
         Text(
             text = text,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
@@ -646,7 +626,7 @@ fun LogActionButton(
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 fun UninstallItem(
-    withLoading: suspend (suspend () -> Unit) -> Unit
+    withLoading: suspend (suspend () -> Unit) -> Unit,
 ) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
@@ -658,7 +638,7 @@ fun UninstallItem(
     val options = remember {
         listOf(
             UninstallType.PERMANENT,
-            UninstallType.RESTORE_STOCK_IMAGE
+            UninstallType.RESTORE_STOCK_IMAGE,
         )
     }
 
@@ -675,7 +655,7 @@ fun UninstallItem(
                 scope.launch {
                     val result = uninstallConfirmDialog.awaitConfirm(
                         title = context.getString(uninstallType.title),
-                        content = context.getString(uninstallType.message)
+                        content = context.getString(uninstallType.message),
                     )
                     if (result == ConfirmResult.Confirmed) {
                         withLoading {
@@ -689,7 +669,7 @@ fun UninstallItem(
                     }
                 }
             }
-        }
+        },
     )
 }
 
@@ -697,19 +677,19 @@ enum class UninstallType(val title: Int, val message: Int, val icon: ImageVector
     TEMPORARY(
         R.string.settings_uninstall_temporary,
         R.string.settings_uninstall_temporary_message,
-        Icons.TwoTone.Delete
+        Icons.TwoTone.Delete,
     ),
     PERMANENT(
         R.string.settings_uninstall_permanent,
         R.string.settings_uninstall_permanent_message,
-        Icons.TwoTone.DeleteForever
+        Icons.TwoTone.DeleteForever,
     ),
     RESTORE_STOCK_IMAGE(
         R.string.settings_restore_stock_image,
         R.string.settings_restore_stock_image_message,
-        Icons.AutoMirrored.TwoTone.Undo
+        Icons.AutoMirrored.TwoTone.Undo,
     ),
-    NONE(0, 0, Icons.TwoTone.Delete)
+    NONE(0, 0, Icons.TwoTone.Delete),
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -726,17 +706,19 @@ private fun TopBar(
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor =
-                if (themeConfig.isEnableBlur)
+                if (themeConfig.isEnableBlur) {
                     Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
-            scrolledContainerColor =
-                if (themeConfig.isEnableBlur)
-                    Color.Transparent
-                else
+                } else {
                     MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                },
+            scrolledContainerColor =
+                if (themeConfig.isEnableBlur) {
+                    Color.Transparent
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                },
         ),
         windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
     )
 }

@@ -2,13 +2,6 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.ProfileTemplate
-import com.agnessu.yakayn.domain.usecase.ExportProfileTemplatesUseCase
-import com.agnessu.yakayn.domain.usecase.ImportProfileTemplatesUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateOfflineUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateRefreshingUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplatesUseCase
-import com.agnessu.yakayn.domain.usecase.RefreshProfileTemplatesUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +10,13 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.ProfileTemplate
+import com.agnessu.yakayn.domain.usecase.ExportProfileTemplatesUseCase
+import com.agnessu.yakayn.domain.usecase.ImportProfileTemplatesUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateOfflineUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateRefreshingUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplatesUseCase
+import com.agnessu.yakayn.domain.usecase.RefreshProfileTemplatesUseCase
 
 data class TemplateUiState(
     val templateList: List<ProfileTemplate> = emptyList(),
@@ -79,6 +79,7 @@ class TemplateViewModel(
     fun dispatch(action: TemplateUiAction) {
         when (action) {
             is TemplateUiAction.Refresh -> viewModelScope.launch { fetchTemplates(action.synchronize) }
+
             is TemplateUiAction.Import -> viewModelScope.launch {
                 val result = importTemplatesUseCase(action.json)
                 result.fold(

@@ -3,6 +3,7 @@ package com.agnessu.yakayn.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.SharedPreferencesMigration
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -14,8 +15,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStoreFile
-import com.agnessu.yakayn.domain.model.AppPreferences
-import com.agnessu.yakayn.domain.model.PreferenceValue
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +23,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.IOException
+import com.agnessu.yakayn.domain.model.AppPreferences
+import com.agnessu.yakayn.domain.model.PreferenceValue
 
 class AppSettingsRepository(
     context: Context,
@@ -60,26 +61,39 @@ class AppSettingsRepository(
         setPreferences(readCurrentPreferences())
     }
 
-    fun getBoolean(key: String, defaultValue: Boolean): Boolean =
-        cachedPreferences.value[booleanPreferencesKey(key)] ?: defaultValue
+    fun getBoolean(key: String, defaultValue: Boolean): Boolean = cachedPreferences.value[
+        booleanPreferencesKey(
+            key,
+        ),
+    ] ?: defaultValue
 
-    fun getInt(key: String, defaultValue: Int): Int =
-        cachedPreferences.value[intPreferencesKey(key)] ?: defaultValue
+    fun getInt(key: String, defaultValue: Int): Int = cachedPreferences.value[intPreferencesKey(key)] ?: defaultValue
 
-    fun getLong(key: String, defaultValue: Long): Long =
-        cachedPreferences.value[longPreferencesKey(key)] ?: defaultValue
+    fun getLong(key: String, defaultValue: Long): Long = cachedPreferences.value[
+        longPreferencesKey(
+            key,
+        ),
+    ] ?: defaultValue
 
-    fun getFloat(key: String, defaultValue: Float): Float =
-        cachedPreferences.value[floatPreferencesKey(key)] ?: defaultValue
+    fun getFloat(key: String, defaultValue: Float): Float = cachedPreferences.value[
+        floatPreferencesKey(
+            key,
+        ),
+    ] ?: defaultValue
 
-    fun getString(key: String, defaultValue: String? = null): String? =
-        cachedPreferences.value[stringPreferencesKey(key)] ?: defaultValue
+    fun getString(key: String, defaultValue: String? = null): String? = cachedPreferences.value[
+        stringPreferencesKey(
+            key,
+        ),
+    ] ?: defaultValue
 
-    fun getStringSet(key: String, defaultValue: Set<String> = emptySet()): Set<String> =
-        cachedPreferences.value[stringSetPreferencesKey(key)] ?: defaultValue
+    fun getStringSet(key: String, defaultValue: Set<String> = emptySet()): Set<String> = cachedPreferences.value[
+        stringSetPreferencesKey(
+            key,
+        ),
+    ] ?: defaultValue
 
-    fun contains(key: String): Boolean =
-        cachedPreferences.value.asMap().keys.any { it.name == key }
+    fun contains(key: String): Boolean = cachedPreferences.value.asMap().keys.any { it.name == key }
 
     fun putBoolean(key: String, value: Boolean) {
         updateCachedValue(booleanPreferencesKey(key), value)
@@ -125,23 +139,22 @@ class AppSettingsRepository(
         remove(stringSetPreferencesKey(key))
     }
 
-    suspend fun editBlocking(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+    suspend fun editBlocking(block: (MutablePreferences) -> Unit) {
         dataStore.edit { prefs ->
             block(prefs)
             setPreferences(prefs.toMutablePreferences())
         }
     }
 
-    private suspend fun readCurrentPreferences(): Preferences =
-        withContext(Dispatchers.IO) {
-            dataStore.data
-                .catch { error ->
-                    if (error is IOException) emit(emptyPreferences()) else throw error
-                }
-                .first()
-        }
+    private suspend fun readCurrentPreferences(): Preferences = withContext(Dispatchers.IO) {
+        dataStore.data
+            .catch { error ->
+                if (error is IOException) emit(emptyPreferences()) else throw error
+            }
+            .first()
+    }
 
-    private fun editAsync(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
+    private fun editAsync(block: (MutablePreferences) -> Unit) {
         applicationScope.launch(Dispatchers.IO) {
             editBlocking(block)
         }
@@ -163,7 +176,7 @@ class AppSettingsRepository(
     private fun setPreferences(value: Preferences) {
         cachedPreferences.value = value
         mutablePreferences.value = AppPreferences(
-            value.asMap().mapKeys { it.key.name }.mapValues { (_, raw) -> raw.toDomainValue() }
+            value.asMap().mapKeys { it.key.name }.mapValues { (_, raw) -> raw.toDomainValue() },
         )
     }
 

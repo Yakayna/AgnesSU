@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (C) 2026 ReSukiSU contributors
+// Copyright (C) 2026 AgnesSU contributors
 package com.agnessu.yakayn.ui.animation.predictiveback
 
 import kotlin.math.roundToInt
 
-internal fun snapScaleToPixelExtent(scale: Float, extent: Float): Float =
-    if (extent > 0f) (scale * extent).roundToInt() / extent else scale
+internal fun snapScaleToPixelExtent(scale: Float, extent: Float): Float = if (extent > 0f) (scale * extent).roundToInt() / extent else scale
 
 internal fun snapTranslationToPixelEdge(
     translation: Float,

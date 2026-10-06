@@ -30,7 +30,6 @@ import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.renderBackgroundBlur
 import org.koin.compose.koinInject
 
-
 private const val ADD_ENTRY_KEY = "susfs_add_entry"
 private const val EMPTY_STATE_KEY = "susfs_empty_state"
 private const val ENTRY_KEY_PREFIX = "susfs_entry:"

@@ -326,7 +326,7 @@ NativeBridge(getAppProfile, jobject, jstring pkg, jint uid) {
 
 	bool useDefaultProfile = get_app_profile(&profile) != 0;
 
-	jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$Profile");
+    jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$Profile");
 	jmethodID constructor = GetEnvironment()->GetMethodID(env, cls, "<init>", "()V");
 	jobject obj = GetEnvironment()->NewObject(env, cls, constructor);
 	jfieldID keyField = GetEnvironment()->GetFieldID(env, cls, "name", "Ljava/lang/String;");
@@ -404,7 +404,7 @@ NativeBridge(getAppProfile, jobject, jstring pkg, jint uid) {
 }
 
 NativeBridge(setAppProfile, jboolean, jobject profile) {
-	jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$Profile");
+    jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$Profile");
 
 	jfieldID keyField = GetEnvironment()->GetFieldID(env, cls, "name", "Ljava/lang/String;");
 	jfieldID currentUidField = GetEnvironment()->GetFieldID(env, cls, "currentUid", "I");
@@ -583,8 +583,8 @@ NativeBridgeNP(getDynamicManager, jobject) {
 		return NULL;
 	}
 
-	jobject obj = CREATE_JAVA_OBJECT("com/agnessu/yakayn/Natives$DynamicManagerConfig");
-	jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$DynamicManagerConfig");
+    jobject obj = CREATE_JAVA_OBJECT("com/agnessu/yakayn/Natives$DynamicManagerConfig");
+    jclass cls = GetEnvironment()->FindClass(env, "com/agnessu/yakayn/Natives$DynamicManagerConfig");
 
 	SET_INT_FIELD(obj, cls, size, (jint)cmd.size);
 	SET_STRING_FIELD(obj, cls, hash, (const char *)cmd.hash);

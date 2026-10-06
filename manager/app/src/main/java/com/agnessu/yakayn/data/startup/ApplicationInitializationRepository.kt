@@ -5,13 +5,13 @@ import android.app.Application
 import android.system.Os
 import coil.Coil
 import coil.ImageLoader
+import com.topjohnwu.superuser.internal.MainShell
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.data.flash.FlashRepository
 import com.agnessu.yakayn.data.shell.KsuCliRepository
 import com.agnessu.yakayn.data.theme.MonetCompatColorSource
-import com.topjohnwu.superuser.internal.MainShell
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import java.io.File
 
 class ApplicationInitializationRepository(
     private val application: Application,

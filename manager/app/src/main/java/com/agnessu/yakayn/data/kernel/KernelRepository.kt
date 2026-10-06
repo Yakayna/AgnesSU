@@ -1,6 +1,8 @@
 package com.agnessu.yakayn.data.kernel
 
 import android.app.Application
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.agnessu.yakayn.Natives
 import com.agnessu.yakayn.Natives.KernelPatchImplementation
 import com.agnessu.yakayn.data.shell.KsuCliRepository
@@ -10,8 +12,6 @@ import com.agnessu.yakayn.domain.model.KernelStatus
 import com.agnessu.yakayn.domain.model.ManagerRecord
 import com.agnessu.yakayn.domain.model.ManagerRuntimeInfo
 import com.agnessu.yakayn.getKernelVersion
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class KernelRepository(
     private val application: Application,
@@ -68,7 +68,7 @@ class KernelRepository(
             suLogEnabled = runCatching { Natives.isSuLogEnabled() }.getOrDefault(false),
             selinuxHideEnabled = runCatching { Natives.isSelinuxHideEnabled() }.getOrDefault(false),
             defaultUmountModules = runCatching { Natives.isDefaultUmountModules() }.getOrDefault(
-                false
+                false,
             ),
         )
     }
@@ -91,8 +91,7 @@ class KernelRepository(
         }
     }
 
-    suspend fun setDefaultUmountModules(enabled: Boolean): Boolean =
-        withContext(Dispatchers.IO) { Natives.setDefaultUmountModules(enabled) }
+    suspend fun setDefaultUmountModules(enabled: Boolean): Boolean = withContext(Dispatchers.IO) { Natives.setDefaultUmountModules(enabled) }
 
     fun isLateLoadMode(): Boolean = runCatching { Natives.isLateLoadMode }.getOrDefault(false)
 

@@ -1,7 +1,7 @@
 package com.agnessu.yakayn.domain.usecase
 
-import com.agnessu.yakayn.domain.model.UmountPath
 import com.agnessu.yakayn.data.kernel.UmountRepository
+import com.agnessu.yakayn.domain.model.UmountPath
 
 class ObserveUmountStateUseCase(private val repository: UmountRepository) {
     operator fun invoke() = repository.state

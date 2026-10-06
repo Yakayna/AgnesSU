@@ -2,6 +2,16 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import com.agnessu.yakayn.domain.model.SulogEntry
 import com.agnessu.yakayn.domain.model.SulogEventFilter
 import com.agnessu.yakayn.domain.model.SulogFile
@@ -13,16 +23,6 @@ import com.agnessu.yakayn.domain.usecase.GetStringSetPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveSulogStateUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshSulogUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringSetPreferenceUseCase
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 data class SulogScreenState(
     val isLoading: Boolean = true,
@@ -82,7 +82,7 @@ class SulogViewModel(
         getStringSetPreference(PREF_SULOG_FILTERS)
             .mapNotNull { raw -> SulogEventFilter.entries.firstOrNull { it.name == raw } }
             .toSet()
-            .ifEmpty(::defaultSulogEventFilters)
+            .ifEmpty(::defaultSulogEventFilters),
     )
     private var refreshJob: Job? = null
     private val mutableEvents = MutableSharedFlow<SulogUiEvent>(extraBufferCapacity = 1)
@@ -116,7 +116,9 @@ class SulogViewModel(
     fun dispatch(action: SulogUiAction) {
         when (action) {
             SulogUiAction.Refresh -> refresh(state.value.selectedFilePath)
+
             SulogUiAction.RefreshLatest -> refresh(null)
+
             SulogUiAction.Enable -> viewModelScope.launch {
                 val result = setSulogEnabled(true)
                 result.exceptionOrNull()?.let {
@@ -134,6 +136,7 @@ class SulogViewModel(
             }
 
             is SulogUiAction.Search -> search.value = action.query
+
             is SulogUiAction.ToggleFilter -> {
                 filters.value = filters.value.toMutableSet().apply {
                     if (!add(action.filter)) remove(action.filter)

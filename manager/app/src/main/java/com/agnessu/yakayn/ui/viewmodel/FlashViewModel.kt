@@ -2,12 +2,6 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.FlashOperation
-import com.agnessu.yakayn.domain.model.FlashOperationUpdate
-import com.agnessu.yakayn.domain.usecase.CheckFlashModuleMountUseCase
-import com.agnessu.yakayn.domain.usecase.ExecuteFlashOperationUseCase
-import com.agnessu.yakayn.domain.usecase.IsSoftRebootPreferredUseCase
-import com.agnessu.yakayn.domain.usecase.RebootUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +11,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.FlashOperation
+import com.agnessu.yakayn.domain.model.FlashOperationUpdate
+import com.agnessu.yakayn.domain.usecase.CheckFlashModuleMountUseCase
+import com.agnessu.yakayn.domain.usecase.ExecuteFlashOperationUseCase
+import com.agnessu.yakayn.domain.usecase.IsSoftRebootPreferredUseCase
+import com.agnessu.yakayn.domain.usecase.RebootUseCase
 
 enum class FlashingStatus { FLASHING, SUCCESS, FAILED }
 
@@ -49,7 +49,7 @@ sealed interface FlashUiAction {
     ) : FlashUiAction
 
     data class Reboot(
-        val allowSoftReboot: Boolean
+        val allowSoftReboot: Boolean,
     ) : FlashUiAction
 }
 
@@ -135,7 +135,7 @@ class FlashViewModel(
                                         update.showReboot,
                                         update.code,
                                         moduleNeedsMount,
-                                    )
+                                    ),
                                 )
                             }
                         }
@@ -168,7 +168,7 @@ class FlashViewModel(
                             ?: current.failedModules,
                         verifiedModules = action.verifiedModule?.let(current.verifiedModules::plus)
                             ?: current.verifiedModules,
-                    )
+                    ),
                 )
             }
 

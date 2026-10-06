@@ -1,11 +1,11 @@
 package com.agnessu.yakayn.data.module
 
-import com.agnessu.yakayn.data.AppSettingsRepository
-import com.agnessu.yakayn.domain.model.ModulePreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.agnessu.yakayn.data.AppSettingsRepository
+import com.agnessu.yakayn.domain.model.ModulePreferences
 
 class ModulePreferencesRepository(
     private val settings: AppSettingsRepository,

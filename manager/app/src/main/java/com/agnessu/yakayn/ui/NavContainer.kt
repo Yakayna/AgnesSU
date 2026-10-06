@@ -2,7 +2,6 @@ package com.agnessu.yakayn.ui
 
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.ManagedActivityResultLauncher
@@ -23,8 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,19 +45,23 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
+import com.agnessu.yakayn.ui.screen.GhostlockScreen
+import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
+import com.agnessu.yakayn.ui.screen.SamsungRootScreen
+import kotlin.coroutines.resume
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.agnessu.yakayn.ui.activity.PermissionRequestInterface
 import com.agnessu.yakayn.ui.animation.predictiveback.installerNavTransition
-import com.agnessu.yakayn.ui.component.InstallConfirmationDialog
-import com.agnessu.yakayn.ui.component.ZipFileDetector
-import com.agnessu.yakayn.ui.component.ZipFileInfo
-import com.agnessu.yakayn.ui.component.ZipType
-import com.agnessu.yakayn.ui.navigation.HandleDeepLink
+import com.agnessu.yakayn.ui.navigation.IntentDispatcher
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Navigator
 import com.agnessu.yakayn.ui.navigation.Route
@@ -69,12 +70,9 @@ import com.agnessu.yakayn.ui.overscroll.rememberCustomOverscrollFactory
 import com.agnessu.yakayn.ui.screen.AppProfileScreen
 import com.agnessu.yakayn.ui.screen.AppProfileTemplateScreen
 import com.agnessu.yakayn.ui.screen.DynamicManagerScreen
-import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
 import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
-import com.agnessu.yakayn.ui.screen.GhostlockScreen
-import com.agnessu.yakayn.ui.screen.SamsungRootScreen
 import com.agnessu.yakayn.ui.screen.InstallScreen
 import com.agnessu.yakayn.ui.screen.SulogScreen
 import com.agnessu.yakayn.ui.screen.TemplateEditorScreen
@@ -97,19 +95,9 @@ import com.agnessu.yakayn.ui.util.LocalPortraitState
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.LocalStretchOverscrollCompensationState
 import com.agnessu.yakayn.ui.util.rememberDeviceCornerRadius
-import com.agnessu.yakayn.ui.viewmodel.MainIntentViewModel
 import com.agnessu.yakayn.ui.viewmodel.PredictiveBackAnimation
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
-import com.agnessu.yakayn.ui.webui.WebUIActivity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
@@ -118,43 +106,16 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.shader.isRenderEffectSupported
-import kotlin.coroutines.resume
-
 
 @Composable
 fun NavContainer(
-    zipUri: List<Uri>?,
-    intentState: MutableStateFlow<Int>,
     settingsViewModel: SettingsViewModel,
-    showConfirmationDialog: MutableState<Boolean>,
-    pendingZipFiles: MutableState<List<ZipFileInfo>>,
+    intentChannel: Channel<Intent>,
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val backgroundRenderState = LocalBackgroundRenderState.current
-    val zipFileDetector = koinInject<ZipFileDetector>()
     val activity = LocalActivity.current as MainActivity
     val context = LocalContext.current
-    val mainIntentViewModel = koinViewModel<MainIntentViewModel>()
-    val mainIntentState by mainIntentViewModel.state.collectAsStateWithLifecycle()
-
-    LaunchedEffect(zipUri) {
-        if (zipUri.isNullOrEmpty()) return@LaunchedEffect
-
-        activity.lifecycleScope.launch(Dispatchers.IO) {
-            val zipFileInfos = zipUri.map { uri ->
-                zipFileDetector.parseZipFile(context, uri)
-            }.filter { it.type != ZipType.UNKNOWN }
-
-            withContext(Dispatchers.Main) {
-                if (zipFileInfos.isNotEmpty()) {
-                    pendingZipFiles.value = zipFileInfos
-                    showConfirmationDialog.value = true
-                } else {
-                    activity.finish()
-                }
-            }
-        }
-    }
 
     val settings by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val systemDensity = LocalDensity.current
@@ -195,102 +156,103 @@ fun NavContainer(
 
     lateinit var permissionRequestHandler: ManagedActivityResultLauncher<Array<String>, Map<String, @JvmSuppressWildcards Boolean>>
 
-    val permissionRequestInterface = object : PermissionRequestInterface {
-        private val mutex = Mutex()
-        private var currentCallback: ((Map<String, @JvmSuppressWildcards Boolean>) -> Unit)? =
-            null
+    val permissionRequestInterface = remember(activity, context) {
+        object : PermissionRequestInterface {
+            private val mutex = Mutex()
+            private var currentCallback: ((Map<String, @JvmSuppressWildcards Boolean>) -> Unit)? =
+                null
 
-        override fun requestPermission(
-            permission: String,
-            callback: (Boolean) -> Unit,
-            requestDescription: String
-        ) {
-            if (activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
-                callback(true)
-                return
-            }
-
-            activity.lifecycleScope.launch {
-                mutex.withLock {
-                    suspendCancellableCoroutine { continuation ->
-                        currentCallback = { result ->
-                            callback(result.any { it.value })
-                            continuation.resume(Unit)
-                        }
-
-                        if (requestDescription.isNotBlank() && ActivityCompat.shouldShowRequestPermissionRationale(
-                                activity,
-                                permission
-                            )
-                        ) {
-                            Toast.makeText(
-                                context,
-                                requestDescription,
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-
-                        permissionRequestHandler.launch(arrayOf(permission))
-                    }
+            override fun requestPermission(
+                permission: String,
+                callback: (Boolean) -> Unit,
+                requestDescription: String,
+            ) {
+                if (activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
+                    callback(true)
+                    return
                 }
-            }
-        }
 
-        override fun requestPermissions(
-            permissions: Array<String>,
-            callback: (Map<String, @JvmSuppressWildcards Boolean>) -> Unit,
-            requestDescription: Map<String, String>
-        ) {
-            val permissionsToRequest = permissions.filter {
-                activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-            }.toTypedArray()
-
-            if (permissionsToRequest.isEmpty()) {
-                callback(permissions.associateWith { true })
-                return
-            }
-
-            activity.lifecycleScope.launch {
-                mutex.withLock {
-                    suspendCancellableCoroutine { continuation ->
-                        currentCallback = { result ->
-                            val finalResult = permissions.associateWith { perm ->
-                                result[perm] ?: true
+                activity.lifecycleScope.launch {
+                    mutex.withLock {
+                        suspendCancellableCoroutine { continuation ->
+                            currentCallback = { result ->
+                                callback(result.any { it.value })
+                                continuation.resume(Unit)
                             }
-                            callback(finalResult)
-                            continuation.resume(Unit)
-                        }
 
-                        permissionsToRequest.forEach { perm ->
-                            if (ActivityCompat.shouldShowRequestPermissionRationale(
+                            if (requestDescription.isNotBlank() && ActivityCompat.shouldShowRequestPermissionRationale(
                                     activity,
-                                    perm
+                                    permission,
                                 )
                             ) {
-                                val msg = requestDescription[perm]
-                                if (!msg.isNullOrBlank()) {
-                                    Toast.makeText(
-                                        activity,
-                                        msg,
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
+                                Toast.makeText(
+                                    context,
+                                    requestDescription,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
                             }
-                        }
 
-                        permissionRequestHandler.launch(permissionsToRequest)
+                            permissionRequestHandler.launch(arrayOf(permission))
+                        }
                     }
                 }
             }
-        }
 
-        fun onPermissionRequestCallback(result: Map<String, @JvmSuppressWildcards Boolean>) =
-            currentCallback?.invoke(result)
+            override fun requestPermissions(
+                permissions: Array<String>,
+                callback: (Map<String, @JvmSuppressWildcards Boolean>) -> Unit,
+                requestDescription: Map<String, String>,
+            ) {
+                val permissionsToRequest = permissions.filter {
+                    activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
+                }.toTypedArray()
+
+                if (permissionsToRequest.isEmpty()) {
+                    callback(permissions.associateWith { true })
+                    return
+                }
+
+                activity.lifecycleScope.launch {
+                    mutex.withLock {
+                        suspendCancellableCoroutine { continuation ->
+                            currentCallback = { result ->
+                                val finalResult = permissions.associateWith { perm ->
+                                    result[perm] ?: true
+                                }
+                                callback(finalResult)
+                                continuation.resume(Unit)
+                            }
+
+                            permissionsToRequest.forEach { perm ->
+                                if (ActivityCompat.shouldShowRequestPermissionRationale(
+                                        activity,
+                                        perm,
+                                    )
+                                ) {
+                                    val msg = requestDescription[perm]
+                                    if (!msg.isNullOrBlank()) {
+                                        Toast.makeText(
+                                            activity,
+                                            msg,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                            }
+
+                            permissionRequestHandler.launch(permissionsToRequest)
+                        }
+                    }
+                }
+            }
+
+            fun onPermissionRequestCallback(result: Map<String, @JvmSuppressWildcards Boolean>) = currentCallback?.invoke(result)
+        }
     }
 
     permissionRequestHandler = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
-        onResult = permissionRequestInterface::onPermissionRequestCallback
+        onResult = permissionRequestInterface::onPermissionRequestCallback,
     )
 
     CompositionLocalProvider(
@@ -298,60 +260,9 @@ fun NavContainer(
         LocalStretchOverscrollCompensationState provides stretchOverscrollCompensationState,
         LocalPermissionRequestInterface provides permissionRequestInterface,
         LocalNavigator provides navigator,
-        LocalDensity provides density
+        LocalDensity provides density,
     ) {
-        HandleDeepLink(
-            intentState = intentState.collectAsState()
-        )
-
-        ShortcutIntentHandler(
-            intentState = intentState
-        )
-
-        InstallConfirmationDialog(
-            show = showConfirmationDialog.value,
-            zipFiles = pendingZipFiles.value,
-            onConfirm = { confirmedFiles ->
-                showConfirmationDialog.value = false
-                activity.lifecycleScope.launch(Dispatchers.IO) {
-                    val moduleUris =
-                        confirmedFiles.filter { it.type == ZipType.MODULE }
-                            .map { it.uri }
-                    val kernelUris =
-                        confirmedFiles.filter { it.type == ZipType.KERNEL }
-                            .map { it.uri }
-
-                    when {
-                        kernelUris.isNotEmpty() && moduleUris.isEmpty() -> {
-                            if (kernelUris.size == 1 && mainIntentState.rootAvailable) {
-                                withContext(Dispatchers.Main) {
-                                    navigator.push(
-                                        Route.Install(
-                                            preselectedKernelUri = kernelUris.first()
-                                                .toString()
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        moduleUris.isNotEmpty() -> {
-                            withContext(Dispatchers.Main) {
-                                navigator.push(
-                                    Route.Flash.modules(moduleUris.map(Uri::toString))
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            onDismiss = {
-                showConfirmationDialog.value = false
-                pendingZipFiles.value = emptyList()
-                activity.finish()
-            }
-        )
-
+        IntentDispatcher(intentChannel)
         val navCornerRadius = rememberDeviceCornerRadius(defaultRadius = 0.dp)
         val roundAllCorners =
             settings.predictiveBackAnimation == PredictiveBackAnimation.AOSP ||
@@ -370,16 +281,20 @@ fun NavContainer(
         }
         val transition = remember(
             settings.predictiveBackAnimation,
-            settings.predictiveBackExitDirection
+            settings.predictiveBackExitDirection,
         ) {
             installerNavTransition(
                 animation = settings.predictiveBackAnimation,
                 exitDirection = settings.predictiveBackExitDirection,
             )
         }
-        val swipeBackDirection = when (LocalLayoutDirection.current) {
-            LayoutDirection.Rtl -> NavSwipeDirection.RightToLeft
-            LayoutDirection.Ltr -> NavSwipeDirection.LeftToRight
+        val swipeBackDirection = if (settings.enableSwipeDismiss) {
+            when (LocalLayoutDirection.current) {
+                LayoutDirection.Rtl -> NavSwipeDirection.RightToLeft
+                LayoutDirection.Ltr -> NavSwipeDirection.LeftToRight
+            }
+        } else {
+            NavSwipeDirection.None
         }
         val interceptPredictiveBack =
             settings.predictiveBackAnimation == PredictiveBackAnimation.None && backStack.size > 1
@@ -431,7 +346,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    MainScreen()
+                    MainScreen(pagerInterceptionMode = settings.pagerInterceptionMode)
                 }
             }
             entry<Route.AppProfileTemplate>(swipeDismiss = swipeBackDirection) {
@@ -523,7 +438,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    ExecuteModuleActionScreen(key.moduleId)
+                    ExecuteModuleActionScreen(key.moduleId, key.fromShortcut)
                 }
             }
             entry<Route.Home>(swipeDismiss = NavSwipeDirection.None) {
@@ -534,7 +449,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    MainScreen()
+                    MainScreen(pagerInterceptionMode = settings.pagerInterceptionMode)
                 }
             }
             entry<Route.SuperUser>(swipeDismiss = NavSwipeDirection.None) {
@@ -545,7 +460,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    MainScreen()
+                    MainScreen(pagerInterceptionMode = settings.pagerInterceptionMode)
                 }
             }
             entry<Route.Module>(swipeDismiss = NavSwipeDirection.None) {
@@ -556,7 +471,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    MainScreen()
+                    MainScreen(pagerInterceptionMode = settings.pagerInterceptionMode)
                 }
             }
             entry<Route.Settings>(swipeDismiss = NavSwipeDirection.None) {
@@ -567,7 +482,7 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    MainScreen()
+                    MainScreen(pagerInterceptionMode = settings.pagerInterceptionMode)
                 }
             }
             entry<Route.ThemeSettings>(swipeDismiss = swipeBackDirection) {
@@ -692,10 +607,14 @@ private fun ManagerNavEntry(
         modifier = Modifier
             .fillMaxSize()
             .then(
-                if (!themeConfig.backgroundImageLoaded) Modifier.background(
-                    MaterialTheme.colorScheme.surfaceContainer
-                ) else Modifier
-            )
+                if (!themeConfig.backgroundImageLoaded) {
+                    Modifier.background(
+                        MaterialTheme.colorScheme.surfaceContainer,
+                    )
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         val isPortrait = maxWidth < maxHeight || (maxHeight / maxWidth > 1.4f)
         val surfaceContainer =
@@ -704,7 +623,7 @@ private fun ManagerNavEntry(
         CompositionLocalProvider(
             LocalPortraitState provides isPortrait,
             LocalBlurState provides rememberMaterial3BlurBackdrop(
-                enableBlur = useBlur
+                enableBlur = useBlur,
             ),
             LocalSnackbarHost provides snackBarHostState,
             LocalBackgroundBlurAnchor provides backgroundBlurAnchorCoordinates,
@@ -728,18 +647,18 @@ private fun ManagerNavEntry(
                             drawContent()
                             drawRect(
                                 color = surfaceContainer.copy(
-                                    alpha = themeConfig.backgroundDim
-                                )
+                                    alpha = themeConfig.backgroundDim,
+                                ),
                             )
-                        }
+                        },
                 )
             }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
-                    )
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
+                    ),
             ) {
                 content()
             }
@@ -760,10 +679,15 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (flashType) {
     )
 
     Route.Flash.TYPE_MODULE -> FlashIt.FlashModule(uris.firstOrNull().orEmpty())
+
     Route.Flash.TYPE_MODULES -> FlashIt.FlashModules(uris, currentIndex)
+
     Route.Flash.TYPE_MODULE_UPDATE -> FlashIt.FlashModuleUpdate(uris.firstOrNull().orEmpty())
+
     Route.Flash.TYPE_RESTORE -> FlashIt.FlashRestore
+
     Route.Flash.TYPE_UNINSTALL -> FlashIt.FlashUninstall
+
     else -> FlashIt.FlashModule(uris.firstOrNull().orEmpty())
 }
 
@@ -874,47 +798,9 @@ fun rememberMaterial3BlurBackdrop(
         }
 
         drawRect(
-            color = backgroundColor.copy(alpha = themeConfig.backgroundDim)
+            color = backgroundColor.copy(alpha = themeConfig.backgroundDim),
         )
 
         drawContent()
-    }
-}
-
-@Composable
-private fun ShortcutIntentHandler(
-    intentState: MutableStateFlow<Int>
-) {
-    val navigator = LocalNavigator.current
-    val activity = LocalActivity.current ?: return
-    val context = LocalContext.current
-    val intentStateValue by intentState.collectAsState()
-    LaunchedEffect(intentStateValue) {
-        val intent = activity.intent
-        val type = intent?.getStringExtra("shortcut_type") ?: return@LaunchedEffect
-        when (type) {
-            "module_action" -> {
-                val moduleId = intent.getStringExtra("module_id") ?: return@LaunchedEffect
-                navigator.push(Route.ExecuteModuleAction(moduleId))
-            }
-
-            "module_webui" -> {
-                val moduleId = intent.getStringExtra("module_id") ?: return@LaunchedEffect
-                val moduleName = intent.getStringExtra("module_name") ?: moduleId
-
-                val webIntent = Intent(context, WebUIActivity::class.java)
-                    .setData("kernelsu://webui/$moduleId".toUri())
-                    .putExtra("id", moduleId)
-                    .putExtra("name", moduleName)
-                    .putExtra("from_webui_shortcut", true)
-                    .addFlags(
-                        Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    )
-                context.startActivity(webIntent)
-            }
-
-            else -> return@LaunchedEffect
-        }
     }
 }

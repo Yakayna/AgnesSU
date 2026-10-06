@@ -2,10 +2,6 @@ package com.agnessu.yakayn.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.agnessu.yakayn.domain.model.CatalogModule
-import com.agnessu.yakayn.domain.model.ModuleCatalogFailure
-import com.agnessu.yakayn.domain.model.ModuleCatalogResult
-import com.agnessu.yakayn.domain.usecase.GetCatalogModuleUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -14,6 +10,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.domain.model.CatalogModule
+import com.agnessu.yakayn.domain.model.ModuleCatalogFailure
+import com.agnessu.yakayn.domain.model.ModuleCatalogResult
+import com.agnessu.yakayn.domain.usecase.GetCatalogModuleUseCase
 
 data class ModuleDetailUiState(
     val module: CatalogModule? = null,

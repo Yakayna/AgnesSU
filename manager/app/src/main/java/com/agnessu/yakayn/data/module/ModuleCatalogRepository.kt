@@ -1,13 +1,5 @@
 package com.agnessu.yakayn.data.module
 
-import com.agnessu.yakayn.data.network.NetworkRequestRepository
-import com.agnessu.yakayn.data.network.NetworkStatusRepository
-import com.agnessu.yakayn.domain.model.CatalogAuthor
-import com.agnessu.yakayn.domain.model.CatalogModule
-import com.agnessu.yakayn.domain.model.ModuleCatalogFailure
-import com.agnessu.yakayn.domain.model.ModuleCatalogResult
-import com.agnessu.yakayn.domain.model.ModuleRelease
-import com.agnessu.yakayn.domain.model.ModuleReleaseAsset
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,6 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import com.agnessu.yakayn.data.network.NetworkRequestRepository
+import com.agnessu.yakayn.data.network.NetworkStatusRepository
+import com.agnessu.yakayn.domain.model.CatalogAuthor
+import com.agnessu.yakayn.domain.model.CatalogModule
+import com.agnessu.yakayn.domain.model.ModuleCatalogFailure
+import com.agnessu.yakayn.domain.model.ModuleCatalogResult
+import com.agnessu.yakayn.domain.model.ModuleRelease
+import com.agnessu.yakayn.domain.model.ModuleReleaseAsset
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -57,7 +57,7 @@ class ModuleCatalogRepository(
                         },
                         onFailure = {
                             ModuleCatalogResult.Failure(
-                                ModuleCatalogFailure.Network(it.message.orEmpty())
+                                ModuleCatalogFailure.Network(it.message.orEmpty()),
                             )
                         },
                     )
@@ -73,6 +73,7 @@ class ModuleCatalogRepository(
         }
         return when (val refreshed = refresh()) {
             is ModuleCatalogResult.Failure -> refreshed
+
             is ModuleCatalogResult.Success -> refreshed.value.firstOrNull { it.moduleId == moduleId }
                 ?.let { ModuleCatalogResult.Success(it) }
                 ?: ModuleCatalogResult.Failure(ModuleCatalogFailure.NotFound)
@@ -132,24 +133,22 @@ class ModuleCatalogRepository(
         )
     }
 
-    private suspend fun fetchModuleDetail(moduleId: String): Detail? {
-        return networkRequestRepository
-            .fetch("https://modules.kernelsu.org/module/$moduleId.json")
-            .getOrNull()
-            ?.let { body ->
-                val json = JSONObject(body)
-                val releases = json.optJSONArray("releases")?.let { array ->
-                    (0 until array.length()).mapNotNull { index ->
-                        array.optJSONObject(index)?.toRelease()
-                    }
-                }.orEmpty()
-                Detail(
-                    readme = json.optString("readmeHTML"),
-                    sourceUrl = stripTicks(json.optString("sourceUrl")),
-                    releases = releases,
-                )
-            }
-    }
+    private suspend fun fetchModuleDetail(moduleId: String): Detail? = networkRequestRepository
+        .fetch("https://modules.kernelsu.org/module/$moduleId.json")
+        .getOrNull()
+        ?.let { body ->
+            val json = JSONObject(body)
+            val releases = json.optJSONArray("releases")?.let { array ->
+                (0 until array.length()).mapNotNull { index ->
+                    array.optJSONObject(index)?.toRelease()
+                }
+            }.orEmpty()
+            Detail(
+                readme = json.optString("readmeHTML"),
+                sourceUrl = stripTicks(json.optString("sourceUrl")),
+                releases = releases,
+            )
+        }
 
     private fun JSONObject.toRelease(): ModuleRelease {
         val releaseName = optString("name", optString("tagName", optString("version")))
@@ -158,12 +157,16 @@ class ModuleCatalogRepository(
                 array.optJSONObject(index)?.let { asset ->
                     val name = asset.optString("name")
                     val url = stripTicks(asset.optString("downloadUrl"))
-                    if (name.isBlank() || url.isBlank()) null else ModuleReleaseAsset(
-                        name = name,
-                        downloadUrl = url,
-                        size = asset.optLong("size"),
-                        downloadCount = asset.opt("downloadCount").toIntCompat(),
-                    )
+                    if (name.isBlank() || url.isBlank()) {
+                        null
+                    } else {
+                        ModuleReleaseAsset(
+                            name = name,
+                            downloadUrl = url,
+                            size = asset.optLong("size"),
+                            downloadCount = asset.opt("downloadCount").toIntCompat(),
+                        )
+                    }
                 }
             }
         }.orEmpty()
