@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.agp.test) apply false
     alias(libs.plugins.androidx.baselineprofile) apply false
     alias(libs.plugins.kotlin) apply false
+    alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.compose.compiler) apply false
     alias(libs.plugins.spotless)
 }
