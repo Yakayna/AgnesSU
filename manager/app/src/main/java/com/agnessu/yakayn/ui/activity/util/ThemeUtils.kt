@@ -1,0 +1,83 @@
+package com.agnessu.yakayn.ui.activity.util
+
+import android.database.ContentObserver
+import android.os.Handler
+import android.provider.Settings
+import com.agnessu.yakayn.data.AppSettingsRepository
+import com.agnessu.yakayn.data.theme.ThemeRepository
+import com.agnessu.yakayn.ui.MainActivity
+import com.agnessu.yakayn.ui.theme.BackgroundManager
+import com.agnessu.yakayn.ui.theme.CardConfig
+import com.agnessu.yakayn.ui.theme.ThemeConfig
+import com.agnessu.yakayn.ui.viewmodel.SettingsUiAction
+import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
+
+class ThemeChangeContentObserver(
+    handler: Handler,
+    private val onThemeChanged: () -> Unit,
+) : ContentObserver(handler) {
+    override fun onChange(selfChange: Boolean) {
+        super.onChange(selfChange)
+        onThemeChanged()
+    }
+}
+
+class ThemeUtils(
+    private val settings: AppSettingsRepository,
+    private val themeConfig: ThemeConfig,
+    private val themeRepository: ThemeRepository,
+    private val cardConfig: CardConfig,
+    private val backgroundManager: BackgroundManager,
+) {
+
+    fun initializeThemeSettings(activity: MainActivity, settingsViewModel: SettingsViewModel) {
+        settingsViewModel.dispatch(SettingsUiAction.InitializeFirstRun)
+        loadThemeSettings(activity)
+        settingsViewModel.dispatch(SettingsUiAction.Initialize)
+    }
+
+    fun registerThemeChangeObserver(activity: MainActivity): ThemeChangeContentObserver {
+        val contentObserver = ThemeChangeContentObserver(Handler(activity.mainLooper)) {
+            activity.runOnUiThread {
+                if (!themeConfig.preventBackgroundRefresh) {
+                    themeConfig.backgroundImageLoaded = false
+                    backgroundManager.loadCustomBackground()
+                }
+            }
+        }
+
+        activity.contentResolver.registerContentObserver(
+            Settings.System.getUriFor("ui_night_mode"),
+            false,
+            contentObserver,
+        )
+
+        return contentObserver
+    }
+
+    fun unregisterThemeChangeObserver(activity: MainActivity, observer: ThemeChangeContentObserver) {
+        activity.contentResolver.unregisterContentObserver(observer)
+    }
+
+    fun onActivityPause() {
+        cardConfig.save()
+        themeConfig.preventBackgroundRefresh = true
+    }
+
+    fun onActivityResume(activity: MainActivity) {
+        themeConfig.preventBackgroundRefresh = false
+        loadThemeSettings(activity)
+    }
+
+    private fun loadThemeSettings(activity: MainActivity) {
+        themeConfig.forceDarkMode = themeRepository.loadThemeMode()
+        themeConfig.seedColor = themeRepository.loadSeedColor()
+        themeConfig.useDynamicColor = themeRepository.loadDynamicColorState()
+        themeConfig.dynamicColorSpec = themeRepository.loadDynamicColorSpec()
+        themeConfig.dynamicPaletteStyle = themeRepository.loadDynamicPaletteStyle(
+            themeConfig.dynamicColorSpec,
+        )
+        cardConfig.load()
+        backgroundManager.loadCustomBackground()
+    }
+}
