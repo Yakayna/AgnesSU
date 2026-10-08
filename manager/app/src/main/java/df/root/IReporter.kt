@@ -1,11 +1,10 @@
 package df.root
 
 /**
- * Progress sink for the DirtyFrag native engine. `libexp.so` caches the
- * `report` method id in JNI_OnLoad (signature `(Ljava/lang/String;)V`) and
- * calls it from the exploit thread for every log line, so this interface's
- * name, package and method must match the native lookup exactly.
+ * Progress sink for the DirtyFrag engine subprocess — one call per stdout line.
+ * The engine is no longer a JNI library, so this is a plain Kotlin callback
+ * rather than a native-resolved ABI.
  */
-interface IReporter {
+fun interface IReporter {
     fun report(message: String)
 }

@@ -46,11 +46,7 @@
 
 -keep interface com.agnessu.rootService.** { *; }
 
-# DirtyFrag (CVE-2026-43284) JNI bridge to libexp.so. The native engine resolves
-# both of these by name at runtime — ExploitRunner.nativeRunAll via the mangled
-# symbol Java_df_root_ExploitRunner_nativeRunAll, and IReporter.report via a
-# GetMethodID cached in JNI_OnLoad (signature (Ljava/lang/String;)V). R8 must not
-# rename or strip them, or release builds throw:
-#   no non-static method "Ldf/root/IReporter;.report(Ljava/lang/String;)V"
--keep class df.root.ExploitRunner { *; }
--keep interface df.root.IReporter { *; }
+# DirtyFrag (CVE-2026-43284) is now a subprocess engine (libdfroot.so exec'd via
+# ExploitRunner, no JNI). df.root.ExploitRunner and df.root.IReporter are plain
+# Kotlin now — R8 keeps them through normal reachability analysis, so no keep
+# rules are required (and none were JNI ABI rules to begin with).

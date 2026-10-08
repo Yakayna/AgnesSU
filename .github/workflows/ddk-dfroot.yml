@@ -1,0 +1,66 @@
+name: Build DFRoot Kernel Module
+
+on:
+  workflow_call:
+    inputs:
+      kmi:
+        description: 'KMI version'
+        required: true
+        type: string
+      ddk_release:
+        description: 'DDK release version'
+        required: false
+        default: '20260828'
+        type: string
+
+jobs:
+  build-dfroot-ko:
+    name: Build dfroot.ko for ${{ inputs.kmi }} (arm64)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ylarod/ddk-min:${{ inputs.kmi }}-${{ inputs.ddk_release }}
+      options: --privileged
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v7
+
+    - name: Add Safe Directory
+      run: |
+        git config --global --add safe.directory /__w/AgnesSU/AgnesSU
+
+    - name: Build dfroot.ko
+      run: |
+        cd manager/dirtyfrag/lkm
+
+        echo "=== Building dfroot.ko for KMI: ${{ inputs.kmi }} ==="
+
+        make
+
+        echo "=== Build completed ==="
+
+        OUT_DIR=/github/workspace/out/dfroot
+        mkdir -p $OUT_DIR
+        OUTPUT_NAME="dfroot-${{ inputs.kmi }}.ko"
+        cp dfroot.ko "$OUT_DIR/$OUTPUT_NAME"
+
+        # Size diet: this ko is written through the exploit page by page, so
+        # every byte counts. --strip-unneeded keeps __this_module (global) and
+        # the .gnu.linkonce.this_module section the loader falls back on; the
+        # guarded loop drops bulky non-alloc sections when present (BTF, notes,
+        # Samsung/Oplus .hyp.*) without failing on stock GKI kernels that lack
+        # them.
+        llvm-strip --strip-unneeded "$OUT_DIR/$OUTPUT_NAME"
+        for sec in .BTF .BTF.base .BTF.ext .comment .note.gnu.build-id .note.gnu.property .note.Linux .note.GNU-stack .llvm_addrsig .hyp.text .hyp.bss .hyp.rodata .hyp.event_ids .hyp.patchable_function_entries .hyp.data; do
+          llvm-objcopy --remove-section "$sec" "$OUT_DIR/$OUTPUT_NAME" 2>/dev/null || true
+        done
+
+        echo "Copied to: $OUT_DIR/$OUTPUT_NAME"
+        ls -la "$OUT_DIR/$OUTPUT_NAME"
+        echo "Size: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
+
+    - name: Upload dfroot.ko artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: dfroot-${{ inputs.kmi }}
+        path: /github/workspace/out/dfroot/dfroot-${{ inputs.kmi }}.ko

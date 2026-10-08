@@ -1,0 +1,21 @@
+name: Build DFRoot LKM
+on:
+  workflow_call:
+  workflow_dispatch:
+jobs:
+  build-dfroot-ko:
+    strategy:
+      fail-fast: false
+      matrix:
+        kmi:
+          - android12-5.10
+          - android13-5.10
+          - android13-5.15
+          - android14-5.15
+          - android14-6.1
+          - android15-6.6
+          - android16-6.12
+          - android17-6.18
+    uses: ./.github/workflows/ddk-dfroot.yml
+    with:
+      kmi: ${{ matrix.kmi }}

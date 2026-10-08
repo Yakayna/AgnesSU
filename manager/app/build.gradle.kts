@@ -255,15 +255,31 @@ val buildSamsungHelper = tasks.register<Exec>("buildSamsungHelper") {
     outputs.upToDateWhen { false }
 }
 
-// DirtyFrag: stage the vendored DFRoot fast-channel engine (libexp.so, package
-// and ksud path remapped to AgnesSU) into jniLibs/arm64-v8a/libexp.so. The
-// binary is committed under manager/dirtyfrag/ (the exploit itself is safe to
-// vendor; only secrets are excluded) while jniLibs/ stays gitignored, so the
-// script copies it into place — no network, no toolchain, works on Git Bash.
+// DirtyFrag (CVE-2026-43284): compile the DFRoot engine from source into
+// jniLibs/arm64-v8a/libdfroot.so + libbootstrap.so. build_dirtyfrag.sh resolves
+// the NDK and runs clang directly (same pattern as the GhostLock payload). The
+// 8 dfroot-*.ko blobs it .incbin's are CI-only inputs (downloaded by
+// build-manager.yml); a local build without them skips cleanly.
 val buildDirtyFrag = tasks.register<Exec>("buildDirtyFrag") {
     group = "dirtyfrag"
-    description = "Stage the DirtyFrag engine into app/src/main/jniLibs/arm64-v8a/libexp.so"
+    description = "Compile the DirtyFrag engine into app/src/main/jniLibs/arm64-v8a/libdfroot.so + libbootstrap.so"
     commandLine("bash", rootProject.file("dirtyfrag/build_dirtyfrag.sh").absolutePath)
+
+    // Resolve sdk.dir from local.properties (Properties.load decodes the escaped
+    // Windows path) and expose it as ANDROID_HOME so build_dirtyfrag.sh can
+    // locate the NDK, mirroring the GhostLock payload tasks.
+    val localProps = Properties()
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use {
+        localProps.load(it)
+    }
+    val sdkDir = localProps.getProperty("sdk.dir") ?: System.getenv("ANDROID_HOME")
+    if (!sdkDir.isNullOrBlank()) {
+        environment("ANDROID_HOME", sdkDir)
+    }
+
+    // Pin the NDK version to the same value AGP uses for the app's CMake build,
+    // so the payload never drifts from the toolchain the rest of the app links against.
+    environment("NDK_VERSION", androidCompileNdkVersion)
 
     outputs.upToDateWhen { false }
 }

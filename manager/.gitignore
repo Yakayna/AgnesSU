@@ -9,3 +9,6 @@ captures
 local.properties
 key.jks
 app/src/main/jniLibs/
+# DFRoot ko blobs are CI artifacts (build-dfroot-ko.yml downloads them here;
+# exp.c .incbin's them during the gradle build). Never commit the binaries.
+dirtyfrag/jni/ko/

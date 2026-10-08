@@ -7,6 +7,8 @@ on:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-lkm.yml'
       - '.github/workflows/ddk-lkm.yml'
+      - '.github/workflows/build-dfroot-ko.yml'
+      - '.github/workflows/ddk-dfroot.yml'
       - '.github/workflows/ksud.yml'
       - 'manager/**'
       - 'kernel/**'
@@ -88,6 +90,13 @@ jobs:
       expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
     secrets: inherit
 
+  # DirtyFrag (CVE-2026-43284): build the 8 arm64 dfroot-*.ko blobs from
+  # manager/dirtyfrag/lkm. They are .incbin'd into libdfroot.so by
+  # build_dirtyfrag.sh during the manager gradle build.
+  build-dfroot-ko:
+    needs: prepare
+    uses: ./.github/workflows/build-dfroot-ko.yml
+
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
@@ -106,9 +115,9 @@ jobs:
       os: ${{ matrix.os }}
 
   build-manager:
-    needs: [prepare]
+    needs: [prepare, build-dfroot-ko]
     runs-on: ubuntu-latest
-    if: always() && needs.prepare.result == 'success'
+    if: always() && needs.prepare.result == 'success' && needs.build-dfroot-ko.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -129,6 +138,13 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Download DFRoot ko blobs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: dfroot-*
+          merge-multiple: true
+          path: manager/dirtyfrag/jni/ko
 
       - name: Determine commit for build
         id: commit
