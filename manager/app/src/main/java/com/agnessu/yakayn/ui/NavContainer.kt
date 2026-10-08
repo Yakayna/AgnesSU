@@ -70,6 +70,7 @@ import com.agnessu.yakayn.ui.overscroll.rememberCustomOverscrollFactory
 import com.agnessu.yakayn.ui.screen.AppProfileScreen
 import com.agnessu.yakayn.ui.screen.AppProfileTemplateScreen
 import com.agnessu.yakayn.ui.screen.DynamicManagerScreen
+import com.agnessu.yakayn.ui.screen.DirtyFragScreen
 import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
@@ -560,6 +561,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     SamsungRootScreen()
+                }
+            }
+            entry<Route.DirtyFrag>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    DirtyFragScreen()
                 }
             }
             entry<Route.KernelFlash>(swipeDismiss = NavSwipeDirection.None) { key ->

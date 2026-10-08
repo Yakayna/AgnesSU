@@ -160,6 +160,10 @@ sealed interface Route :
 
     @Parcelize
     @Serializable
+    data object DirtyFrag : Route
+
+    @Parcelize
+    @Serializable
     data class KernelFlash(
         val kernelUri: String,
         val selectedSlot: String?,

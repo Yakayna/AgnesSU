@@ -15,6 +15,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- DirtyFrag (CVE-2026-43284): the native engine reads crash_dump64 and
+         holds a wake lock during the exploit, mirroring the RootMyAndroid
+         manifest it was repacked from. -->
+    <uses-permission android:name="android.permission.DUMP" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
 

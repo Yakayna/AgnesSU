@@ -14,8 +14,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
@@ -554,6 +555,7 @@ private fun TopBar(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StatusCard(
     uiState: HomeUiState,
@@ -644,14 +646,19 @@ private fun StatusCard(
                     } else null
                 )
 
-                // GhostLock + Samsung one-tap root sit below the red
-                // "not installed" card instead of inside its trailing slot, so
-                // the two buttons no longer squeeze the card down.
+                // GhostLock + Samsung + DirtyFrag one-tap root sit below the
+                // red "not installed" card instead of inside its trailing slot,
+                // so the buttons no longer squeeze the card down. FlowRow wraps
+                // the third button onto a second line on narrow screens.
                 if (Os.uname().machine == "aarch64") {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         GhostlockButton()
                         SamsungRootButton()
+                        DirtyFragButton()
                     }
                 }
             }

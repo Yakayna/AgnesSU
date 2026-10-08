@@ -255,10 +255,24 @@ val buildSamsungHelper = tasks.register<Exec>("buildSamsungHelper") {
     outputs.upToDateWhen { false }
 }
 
+// DirtyFrag: stage the vendored DFRoot fast-channel engine (libexp.so, package
+// and ksud path remapped to AgnesSU) into jniLibs/arm64-v8a/libexp.so. The
+// binary is committed under manager/dirtyfrag/ (the exploit itself is safe to
+// vendor; only secrets are excluded) while jniLibs/ stays gitignored, so the
+// script copies it into place — no network, no toolchain, works on Git Bash.
+val buildDirtyFrag = tasks.register<Exec>("buildDirtyFrag") {
+    group = "dirtyfrag"
+    description = "Stage the DirtyFrag engine into app/src/main/jniLibs/arm64-v8a/libexp.so"
+    commandLine("bash", rootProject.file("dirtyfrag/build_dirtyfrag.sh").absolutePath)
+
+    outputs.upToDateWhen { false }
+}
+
 tasks.named("preBuild").configure {
     dependsOn(buildGhostlockPayload)
     dependsOn(buildGhostlockExtract)
     dependsOn(buildSamsungHelper)
+    dependsOn(buildDirtyFrag)
 }
 
 dependencies {

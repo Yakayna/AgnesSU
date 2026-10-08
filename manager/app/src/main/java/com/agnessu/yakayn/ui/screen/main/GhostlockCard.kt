@@ -54,3 +54,26 @@ fun SamsungRootButton(
         Text(stringResource(R.string.home_samsung_root))
     }
 }
+
+/**
+ * Home-screen entry point into the DirtyFrag one-tap root page (CVE-2026-43284,
+ * [Beta]). Cross-OEM fast channel — the third root method next to GhostLock and
+ * Samsung.
+ */
+@Composable
+fun DirtyFragButton(
+    modifier: Modifier = Modifier,
+) {
+    val navigator = LocalNavigator.current
+
+    Button(
+        onClick = { navigator.push(Route.DirtyFrag) },
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+        ),
+    ) {
+        Text(stringResource(R.string.home_dirtyfrag))
+    }
+}

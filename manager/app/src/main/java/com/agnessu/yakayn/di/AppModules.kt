@@ -19,6 +19,7 @@ import com.agnessu.yakayn.data.count.CountRepository
 import com.agnessu.yakayn.data.download.DownloadRepository
 import com.agnessu.yakayn.data.file.ModuleFileRepository
 import com.agnessu.yakayn.data.flash.FlashRepository
+import com.agnessu.yakayn.data.dirtyfrag.DirtyFragRepository
 import com.agnessu.yakayn.data.ghostlock.AndroidGhostlockRepository
 import com.agnessu.yakayn.data.ghostlock.AssetConfigLoader
 import com.agnessu.yakayn.data.ghostlock.BuiltinProfileCatalog
@@ -287,6 +288,7 @@ val repositoryModule = module {
             payloadRepository = get(),
         )
     }
+    single { DirtyFragRepository(androidApplication()) }
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
     singleOf(::BugreportRepository)
