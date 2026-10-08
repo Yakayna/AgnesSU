@@ -59,7 +59,6 @@
     <string name="reboot_edl">Reboot to EDL</string>
     <string name="about">About</string>
     <string name="about_anime_character_sticker">Agnes Tàychyon by @Sinectrea</string>
-    <string name="about_app_icon"><![CDATA[The icons are ALL RIGHTS RESERVED and copyright is held by %1$s]]></string>
     <string name="get_source_code">Check for source code</string>
     <string name="get_source_code_detail">Check for source code on GitHub</string>
     <string name="join_telegram_group">Join community</string>
@@ -156,8 +155,8 @@
     <string name="samsung_status_ready">Ready</string>
     <string name="samsung_status_downloading">Downloading payload…</string>
     <string name="samsung_status_exploiting">Running exploit…</string>
-    <string name="samsung_status_loading_ksu">Loading KernelSU…</string>
-    <string name="samsung_status_installed">KernelSU active</string>
+    <string name="samsung_status_loading_ksu">Loading AgnesSU…</string>
+    <string name="samsung_status_installed">AgnesSU active</string>
     <string name="samsung_status_failed">Root failed</string>
     <string name="samsung_log_title">Samsung Root</string>
     <string name="samsung_close">Close</string>
@@ -197,7 +196,6 @@
     <string name="profile_umount_modules">Umount modules</string>
     <string name="failed_to_update_app_profile">Failed to update App Profile for %s</string>
     <string name="debug_version_notice">You are using a DEBUG build of manager, if you don\'t know what a DEBUG version is, switch into a RELEASE build immediately</string>
-    <string name="unofficial_version_notice">"The manager you are using is not the official %s manager, and you may not be able to obtain permissions."</string>
     <string name="conflict_with_apatch">Detected APatch, everything might stop working.</string>
     <string name="settings_umount_modules_default">Umount modules by default</string>
     <string name="settings_umount_modules_default_summary">The global default value for \"Umount modules\" in App Profile. If enabled, it will remove all module modifications to the system for apps that don\'t have a profile set</string>

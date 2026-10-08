@@ -112,7 +112,6 @@
     <string name="profile_umount_modules">Размантаваць модулі</string>
     <string name="failed_to_update_app_profile">Не атрымалася абнавіць профіль праграмы для %s</string>
     <string name="debug_version_notice">Вы выкарыстоўваеце адладкавую зборку мэнэджара. Калі вы не ведаеце, што такое адладкавая версія, неадкладна пераключыцеся на зборку RELEASE</string>
-    <string name="unofficial_version_notice">Менеджар, якім вы карыстаецеся, не з\'яўляецца афіцыйным менеджарам %s, і вы можаце не мець магчымасці атрымаць дазволы.</string>
     <string name="conflict_with_apatch">Выяўлены APatch, усё можа перастаць працаваць.</string>
     <string name="settings_umount_modules_default">Размантаваць модулі па змаўчанні</string>
     <string name="settings_umount_modules_default_summary">Глабальнае значэнне па змаўчанні для «Umount modules» у профілі праграмы. Калі ўключана, гэта выдаліць усе мадыфікацыі модуляў сістэмы для праграм, для якіх не зададзены профіль</string>

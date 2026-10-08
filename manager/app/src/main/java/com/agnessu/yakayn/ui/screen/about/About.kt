@@ -41,11 +41,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.fromHtml
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -144,23 +139,7 @@ fun AboutScreen() {
                     color = MaterialTheme.colorScheme.outlineVariant.copy(
                         alpha = cardConfig.cardAlpha,
                     ),
-                    message = AnnotatedString.fromHtml(
-                        htmlString = stringResource(
-                            id = R.string.about_app_icon,
-                            "<b><a href=\"https://github.com/OukaroMF\">OukaroMF</a></b>",
-                        ),
-                        linkStyles = TextLinkStyles(
-                            style = SpanStyle(
-                                color = MaterialTheme.colorScheme.primary,
-                                textDecoration = TextDecoration.Underline,
-                            ),
-                            pressedStyle = SpanStyle(
-                                color = MaterialTheme.colorScheme.primary,
-                                background = MaterialTheme.colorScheme.secondaryContainer,
-                                textDecoration = TextDecoration.Underline,
-                            ),
-                        ),
-                    ),
+                    message = stringResource(id = R.string.about_anime_character_sticker),
                     icon = {
                         Icon(
                             imageVector = Icons.TwoTone.Info,

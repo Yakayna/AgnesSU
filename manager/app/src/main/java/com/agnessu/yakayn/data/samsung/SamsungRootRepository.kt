@@ -110,10 +110,10 @@ class SamsungRootRepository(
                 setPhase(SamsungInstallPhase.Exploiting, "[*] Running exploit")
                 executeExploit(payloads.exploit, shizuku)
 
-                setPhase(SamsungInstallPhase.LoadingKernelSu, "[*] Loading KernelSU")
-                installKernelSu(payloads, shizuku)
+                setPhase(SamsungInstallPhase.LoadingKernelSu, "[*] Loading AgnesSU")
+                installKernelSu(shizuku)
 
-                setPhase(SamsungInstallPhase.Installed, "[*] KernelSU active")
+                setPhase(SamsungInstallPhase.Installed, "[*] AgnesSU active")
                 appendLog("[*] Install complete")
             } catch (error: Throwable) {
                 appendLog("[-] ${error.message ?: error.javaClass.simpleName}")
@@ -203,26 +203,28 @@ class SamsungRootRepository(
         appendLog("[*] Bootstrap root")
     }
 
-    private suspend fun installKernelSu(payloads: SamsungVerifiedPayloads, shizuku: Boolean) {
+    private suspend fun installKernelSu(shizuku: Boolean) {
+        val ksud = bundledKsud()
+        require(ksud.isFile) { "libksud.so missing from native library dir" }
         if (shizuku) {
-            shizukuStage(payloads.kernelSu, SHIZUKU_KSUD_PATH, "755")
-            shizukuStage(payloads.kernelSu, SHIZUKU_KSUD_STAGE_PATH, "755")
-            appendLog("[*] KernelSU staged")
+            shizukuStage(ksud, SHIZUKU_KSUD_PATH, "755")
+            shizukuStage(ksud, SHIZUKU_KSUD_STAGE_PATH, "755")
+            appendLog("[*] AgnesSU staged")
         } else {
-            val source = shellQuote(payloads.kernelSu.absolutePath)
+            val source = shellQuote(ksud.absolutePath)
             val stageCommand =
                 "/system/bin/cp $source $SHIZUKU_KSUD_PATH && " +
                     "/system/bin/cp $source $SHIZUKU_KSUD_STAGE_PATH && " +
                     "/system/bin/chmod 755 $SHIZUKU_KSUD_PATH $SHIZUKU_KSUD_STAGE_PATH"
             val stage = runHelper(shizuku, "-c", stageCommand)
-            require(stage.code == 0) { "Failed to stage KernelSU: ${stage.output}" }
-            appendLog("[*] KernelSU staged")
+            require(stage.code == 0) { "Failed to stage AgnesSU: ${stage.output}" }
+            appendLog("[*] AgnesSU staged")
         }
 
         val lateLoad = runHelper(shizuku, "--late-load")
-        require(lateLoad.code == 0) { "KernelSU late-load failed (${lateLoad.code}): ${lateLoad.output}" }
+        require(lateLoad.code == 0) { "AgnesSU late-load failed (${lateLoad.code}): ${lateLoad.output}" }
         if (lateLoad.output.isNotBlank()) appendLog(lateLoad.output)
-        appendLog("[*] KernelSU control verified")
+        appendLog("[*] AgnesSU control verified")
     }
 
     private fun helperFile(shizuku: Boolean): File =
@@ -233,6 +235,8 @@ class SamsungRootRepository(
         }
 
     private fun nativeHelperFile() = File(context.applicationInfo.nativeLibraryDir, "libcve43499root.so")
+
+    private fun bundledKsud(): File = File(context.applicationInfo.nativeLibraryDir, "libksud.so")
 
     private fun shizukuStage(source: File, target: String, mode: String): File {
         val staged = File(target)

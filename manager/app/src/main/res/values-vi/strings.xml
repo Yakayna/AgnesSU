@@ -366,8 +366,8 @@
     <string name="samsung_status_ready">Sẵn sàng</string>
     <string name="samsung_status_downloading">Đang tải payload…</string>
     <string name="samsung_status_exploiting">Đang chạy exploit…</string>
-    <string name="samsung_status_loading_ksu">Đang tải KernelSU…</string>
-    <string name="samsung_status_installed">KernelSU đã hoạt động</string>
+    <string name="samsung_status_loading_ksu">Đang tải AgnesSU…</string>
+    <string name="samsung_status_installed">AgnesSU đã hoạt động</string>
     <string name="samsung_status_failed">Root thất bại</string>
     <string name="samsung_log_title">Root Samsung</string>
     <string name="samsung_close">Đóng</string>
@@ -387,7 +387,6 @@
     <string name="profile_namespace_individual">Cá nhân</string>
     <string name="profile_flags_desc_no_new_privs">Ngăn chặn việc leo thang đặc quyền thêm nữa thông qua KernelSU từ trong bối cảnh của cấu hình root này.</string>
     <string name="conflict_with_apatch">Phát hiện APatch, tất cả mọi thứ có thể dừng hoạt động.</string>
-    <string name="unofficial_version_notice">Trình quản lý mà bạn đang sử dụng không phải là trình quản lý %s chính thức, và bạn có thể không thể xin được quyền.</string>
     <string name="debug_version_notice">Bạn đang sử dụng bản dựng DEBUG của trình quản lý; nếu bạn không biết phiên bản DEBUG là gì, hãy chuyển sang bản dựng RELEASE ngay lập tức</string>
     <string name="module_action_success">Hành động của mô-đun đã được thực hiện thành công.</string>
     <string name="sulog">Nhật ký của SU</string>
