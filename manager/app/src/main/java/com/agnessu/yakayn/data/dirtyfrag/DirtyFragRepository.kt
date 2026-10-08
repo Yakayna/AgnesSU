@@ -133,7 +133,7 @@ class DirtyFragRepository(private val context: Context) {
             runCatching { ipsec.removeTransportModeTransforms(encapSock.fileDescriptor) }
             runCatching { transform.close() }
             runCatching { encapSock.close() }
-            runCatching { ipsec.deleteSecurityParameterIndex(spi) }
+            runCatching { spi.close() }
         }
     }
 
