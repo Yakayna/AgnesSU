@@ -439,9 +439,22 @@ class AndroidGhostlockRepository(
 
             _exploitState.value = ExploitState.Running()
 
-            val exitCode = if (currentSettings.useShizuku &&
+            val useShizuku = currentSettings.useShizuku &&
                 shizukuRunner.status.value == ShizukuStatus.READY
-            ) {
+
+            // Stage AgnesSU's own ksud into the home dir the root script resolves
+            // ($HOME_DIR/ksud) *before* the exploit runs. The rooted victim runs
+            // that script mid-exploit, so staging after the fact leaves
+            // $HOME_DIR/ksud missing and the script falls back to another
+            // manager's ksud — loading a module whose UAPI version differs from
+            // the manager's and surfacing "kernel upgrade required". The Shizuku
+            // path stages inside GhostlockUserService instead (shell domain),
+            // since the app cannot write /data/local/tmp.
+            if (!useShizuku) {
+                prepareKsud(File(context.filesDir, "ghostlock_work"), onLog)
+            }
+
+            val exitCode = if (useShizuku) {
                 onLog("executing via Shizuku (shell domain)")
                 val result = shizukuRunner.runExploit(
                     primaryCpu = currentSettings.cpuPair.primary,
@@ -465,10 +478,6 @@ class AndroidGhostlockRepository(
             }
 
             _exploitState.value = ExploitState.Finished(exitCode, emptyList())
-
-            if (exitCode == 0) {
-                prepareKsud(onLog)
-            }
 
             Result.success(exitCode)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -571,15 +580,19 @@ class AndroidGhostlockRepository(
         return exitCode
     }
 
-    private fun prepareKsud(onLog: (String) -> Unit) {
+    private fun prepareKsud(workDir: File, onLog: (String) -> Unit) {
         val source = File(context.applicationInfo.nativeLibraryDir, "libksud.so")
         if (!source.isFile) {
             onLog("warning: libksud.so missing")
             return
         }
-        val workDir = File(context.filesDir, "ghostlock_work")
         val output = File(workDir, "ksud")
+        if (output.isFile && output.length() == source.length()) {
+            onLog("ksud already staged")
+            return
+        }
         runCatching {
+            workDir.mkdirs()
             source.inputStream().use { inp -> output.outputStream().use { inp.copyTo(it) } }
             Os.chmod(output.absolutePath, 0b111101101)
             onLog("ksud staged to ${output.absolutePath}")

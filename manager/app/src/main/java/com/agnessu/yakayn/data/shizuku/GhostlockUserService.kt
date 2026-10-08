@@ -86,6 +86,12 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
         val workDir = File("/data/local/tmp/.ghostlock")
         workDir.mkdirs()
 
+        // Stage AgnesSU's own ksud into the home dir before the exploit runs so
+        // the root script's $HOME_DIR/ksud resolves here instead of falling back
+        // to another manager's ksud (whose module UAPI version mismatches the
+        // manager and shows "kernel upgrade required").
+        stageKsud(nativeLibDir, workDir, callback)
+
         val logFile = File(workDir, ".ghostlock_native.log")
         logFile.writeText("")
 
@@ -152,6 +158,30 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
 
         callback.onLog("<s> native exited code=$exitCode")
         callback.onComplete(exitCode)
+    }
+
+    private fun stageKsud(
+        nativeLibDir: String,
+        workDir: File,
+        callback: IGhostlockCallback,
+    ) {
+        val source = File(nativeLibDir, "libksud.so")
+        if (!source.isFile) {
+            callback.onLog("<s> warning: libksud.so missing")
+            return
+        }
+        val output = File(workDir, "ksud")
+        if (output.isFile && output.length() == source.length()) {
+            callback.onLog("<s> ksud already staged")
+            return
+        }
+        runCatching {
+            source.inputStream().use { inp -> output.outputStream().use { inp.copyTo(it) } }
+            Os.chmod(output.absolutePath, 0b111101101)
+            callback.onLog("<s> ksud staged -> ${output.absolutePath}")
+        }.onFailure {
+            callback.onLog("<s> ksud copy failed: ${it.message}")
+        }
     }
 
     private fun handleStatusLine(
