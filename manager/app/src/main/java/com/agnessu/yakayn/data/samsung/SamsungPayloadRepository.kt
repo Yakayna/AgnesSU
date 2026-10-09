@@ -44,8 +44,15 @@ class SamsungPayloadRepository(private val context: Context) {
             "exploit payload",
             onProgress,
         )
+        val kernelSu = downloadArtifact(
+            profile.kernelSu,
+            File(directory, "ksud-s25u-kdp"),
+            "KernelSU (kdp)",
+            onProgress,
+        )
         Os.chmod(exploit.absolutePath, 0b100100100)
-        return SamsungVerifiedPayloads(profile, exploit)
+        Os.chmod(kernelSu.absolutePath, 0b100100100)
+        return SamsungVerifiedPayloads(profile, exploit, kernelSu)
     }
 
     private fun downloadArtifact(

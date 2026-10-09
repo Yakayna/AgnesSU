@@ -130,6 +130,7 @@ data class SamsungDeviceSnapshot(
 data class SamsungVerifiedPayloads(
     val profile: SamsungTargetProfile,
     val exploit: java.io.File,
+    val kernelSu: java.io.File,
 )
 
 enum class SamsungInstallPhase {
