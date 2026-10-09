@@ -9,9 +9,27 @@
 #include <unistd.h>
 
 #define BLKROSET   0x125d
-#define KSUD       "/data/user_de/0/com.agnessu.yakayn/ksud"
-#define PREFS_PATH "/data/user_de/0/com.agnessu.yakayn/shared_prefs/dirtyfrag.xml"
 #define MODULES_DIR "/data/adb/modules"
+
+/* ksud and the prefs file live next to us in device-protected storage. Derive
+ * them from /proc/self/exe (the ko execs us as <de>/<package>/bootstrap) so a
+ * spoofed/renamed build resolves its own package instead of a hardcoded one. */
+static char g_base[256];
+static char g_ksud[256];
+static char g_prefs[256];
+
+static int resolve_paths(void)
+{
+    ssize_t n = readlink("/proc/self/exe", g_base, sizeof(g_base) - 1);
+    if (n <= 0) return -1;
+    g_base[n] = '\0';
+    char *slash = strrchr(g_base, '/');
+    if (!slash) return -1;
+    slash[1] = '\0'; /* dirname: /data/user_de/0/<package>/ */
+    snprintf(g_ksud, sizeof(g_ksud), "%sksud", g_base);
+    snprintf(g_prefs, sizeof(g_prefs), "%sshared_prefs/dirtyfrag.xml", g_base);
+    return 0;
+}
 
 static int pref_true(const char *buf, const char *key)
 {
@@ -27,7 +45,7 @@ static int pref_true(const char *buf, const char *key)
 static int read_prefs(char *su_manager, size_t su_manager_size, int *soft_reboot,
                       int *disable_modules)
 {
-    int fd = open(PREFS_PATH, O_RDONLY);
+    int fd = open(g_prefs, O_RDONLY);
     if (fd < 0) return -1;
 
     char buf[4096];
@@ -163,7 +181,8 @@ int main(void)
     touch("/dev/dfm1");
     char su_manager[256];
     int soft_reboot, disable_mods;
-    if (read_prefs(su_manager, sizeof(su_manager), &soft_reboot, &disable_mods) != 0) {
+    if (resolve_paths() != 0 ||
+        read_prefs(su_manager, sizeof(su_manager), &soft_reboot, &disable_mods) != 0) {
         touch("/dev/dfme0");
         return 1;
     }
@@ -187,9 +206,9 @@ int main(void)
     touch("/dev/dfm5");
     char **late_load;
     if (soft_reboot)
-        late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, "--soft-reboot", NULL };
+        late_load = (char *[]){ g_ksud, "late-load", "--package-name", su_manager, "--soft-reboot", NULL };
     else
-        late_load = (char *[]){ KSUD, "late-load", "--package-name", su_manager, NULL };
+        late_load = (char *[]){ g_ksud, "late-load", "--package-name", su_manager, NULL };
     if (run(late_load) == 0)
         touch("/dev/dfm6");
     else

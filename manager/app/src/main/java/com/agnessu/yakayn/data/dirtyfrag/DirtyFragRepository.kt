@@ -40,6 +40,10 @@ class DirtyFragRepository(private val context: Context) {
 
     val snapshot: DirtyFragDeviceSnapshot by lazy { DirtyFragDeviceSnapshot.current() }
 
+    /** Device-protected data dir of the *running* package: `/data/user_de/0/<pkg>/`. */
+    private val deDataDir: File
+        get() = context.createDeviceProtectedStorageContext().filesDir.parentFile
+
     init {
         scope.launch {
             _state.value = DirtyFragUiState(
@@ -114,12 +118,17 @@ class DirtyFragRepository(private val context: Context) {
             stageBootstrap(reporter)
             val bin = File(context.applicationInfo.nativeLibraryDir, "libdfroot.so")
             require(bin.isFile) { "libdfroot.so missing from native library dir" }
+            // Resolve the bootstrap path at runtime: a spoofed/renamed build runs
+            // under a randomized applicationId, so the ko must exec *this* package's
+            // staged bootstrap, not a hardcoded com.agnessu.yakayn path.
+            val bootstrapPath = File(deDataDir, "bootstrap").absolutePath
             return ExploitRunner.run(
                 bin = bin,
                 encapPort = encapPort,
                 senderPort = senderPort,
                 spi = spi.spi,
                 aesKey = aesKey,
+                bootstrapPath = bootstrapPath,
                 onLine = { reporter.report(it) },
             )
         } finally {
@@ -146,16 +155,16 @@ class DirtyFragRepository(private val context: Context) {
     }
 
     /**
-     * Copy AgnesSU's bundled ksud (libksud.so) to
-     * `/data/user_de/0/com.agnessu.yakayn/ksud` — the path bootstrap late-loads.
+     * Copy AgnesSU's bundled ksud (libksud.so) to `<deDataDir>/ksud` — the path
+     * bootstrap late-loads (derived from /proc/self/exe at runtime).
      */
     private fun stageKsud(reporter: IReporter) {
         stageNative(context.applicationInfo.nativeLibraryDir, "libksud.so", "ksud", reporter)
     }
 
     /**
-     * Copy the DFRoot post-root stage (libbootstrap.so) to
-     * `/data/user_de/0/com.agnessu.yakayn/bootstrap` — the path the ko executes.
+     * Copy the DFRoot post-root stage (libbootstrap.so) to `<deDataDir>/bootstrap`
+     * — the path the ko executes (patched in at runtime from --bootstrap-path).
      * This stage is what sets partitions read-only before ksud starts; skipping
      * it is the Samsung reboot regression.
      */
@@ -171,7 +180,7 @@ class DirtyFragRepository(private val context: Context) {
     ) {
         val src = File(nativeLibDir, srcName)
         require(src.isFile) { "$srcName missing from native library dir" }
-        val target = File(context.createDeviceProtectedStorageContext().filesDir.parentFile, destName)
+        val target = File(deDataDir, destName)
         if (target.isFile && target.length() == src.length()) {
             reporter.report("[*] $destName already staged")
             return

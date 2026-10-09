@@ -42,8 +42,12 @@ static int __nocfi __init dfroot_init(void)
     void *info;
     int ret;
 
-    static const char sh[]        = "/system/bin/sh";
-    static const char bootstrap[] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
+    static const char sh[] = "/system/bin/sh";
+    /* Fixed-size slot: exp.c rewrites this whole 256-byte region with the real
+     * bootstrap path before the ko is loaded, so a spoofed or renamed build
+     * (applicationId != com.agnessu.yakayn) still execs its own staged
+     * bootstrap. The default value keeps an unpatched ko behaving as before. */
+    static char bootstrap[256] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
     static char cmd[512];
     static char *envp[] = { "PATH=/system/bin", NULL };
     static char *argv[] = { (char *)sh, "-c", cmd, NULL };

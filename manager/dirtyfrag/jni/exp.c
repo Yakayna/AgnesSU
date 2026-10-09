@@ -20,6 +20,11 @@
 static const char kCrashDump[] = "/apex/com.android.runtime/bin/crash_dump64";
 static char    *libcxx_ko_target;
 
+/* Runtime bootstrap path, supplied via --bootstrap-path for spoofed/renamed
+ * builds. When empty, the ko's compiled-in default path is used unchanged. */
+static char g_bootstrap_path[256];
+static const char kDefaultBootstrap[] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
+
 static int      g_encap_port;
 static int      g_sender_port;
 static uint32_t g_spi;
@@ -343,6 +348,38 @@ static int patch_helper(void) {
     return 0;
 }
 
+/* Rewrite the ko's hardcoded bootstrap path (the static char bootstrap[256]
+ * slot in dfroot.c) with the runtime path for spoofed/renamed builds. Returns
+ * 0 on success (or when there is nothing to patch), -1 if the slot is missing
+ * or the runtime path doesn't fit — patch_ko() aborts on -1 so a stale ko blob
+ * fails loudly instead of silently execing the default package and timing out. */
+static int patch_ko_bootstrap(char *buf, size_t len) {
+    if (!g_bootstrap_path[0]) return 0;
+    if (!strcmp(g_bootstrap_path, kDefaultBootstrap)) return 0;
+
+    size_t need = strlen(kDefaultBootstrap);
+    char *slot = NULL;
+    for (size_t i = 0; i + need <= len; i++) {
+        if (memcmp(buf + i, kDefaultBootstrap, need) == 0) {
+            slot = buf + i;
+            break;
+        }
+    }
+    if (!slot || slot + 256 > buf + len) {
+        printf("patch: ERROR - bootstrap slot not found in ko (len=%zu); stale ko blob?\n", len);
+        return -1;
+    }
+    size_t plen = strlen(g_bootstrap_path);
+    if (plen >= 256) {
+        printf("patch: ERROR - bootstrap path too long (%zu)\n", plen);
+        return -1;
+    }
+    memset(slot, 0, 256);
+    memcpy(slot, g_bootstrap_path, plen);
+    printf("patch: bootstrap path -> %s\n", g_bootstrap_path);
+    return 0;
+}
+
 static int patch_ko(void) {
     int andr = 0, major = 0, minor = 0;
     if (read_device_versions(&andr, &major, &minor) != 0) {
@@ -358,6 +395,10 @@ static int patch_ko(void) {
     size_t len;
     char *buf = pad16(ko->start, (size_t)(ko->end - ko->start), &len);
     if (!buf) { printf("patch: %s - pad16 alloc failed\n", libcxx_ko_target); return -1; }
+    if (patch_ko_bootstrap(buf, len) != 0) {
+        free(buf);
+        return -1;
+    }
     printf("patch: %s <- dfroot.ko (%zu bytes)\n", libcxx_ko_target, len);
     int ret = patch_file_cbc(libcxx_ko_target, buf, len, 0, 1);
     free(buf);
@@ -476,7 +517,7 @@ static int hex_to_bytes(const char *hex, uint8_t *out, size_t len) {
 
 static void usage(const char *argv0) {
     fprintf(stderr,
-            "usage: %s --encap-port N --sender-port N --spi N --aes-key HEX\n", argv0);
+            "usage: %s --encap-port N --sender-port N --spi N --aes-key HEX [--bootstrap-path PATH]\n", argv0);
 }
 
 static int setup(int argc, char **argv) {
@@ -495,6 +536,13 @@ static int setup(int argc, char **argv) {
             spi = (uint32_t)strtoul(argv[++i], NULL, 0);
         else if (!strcmp(a, "--aes-key") && i + 1 < argc)
             have_aes = hex_to_bytes(argv[++i], aes_key, sizeof(aes_key)) == 0;
+        else if (!strcmp(a, "--bootstrap-path") && i + 1 < argc) {
+            if (strlen(argv[i + 1]) >= sizeof(g_bootstrap_path)) {
+                usage(argv[0]);
+                return 2;
+            }
+            snprintf(g_bootstrap_path, sizeof(g_bootstrap_path), "%s", argv[++i]);
+        }
         else { usage(argv[0]); return 2; }
     }
     if (!encap_port || !sender_port || !spi || !have_aes) {
