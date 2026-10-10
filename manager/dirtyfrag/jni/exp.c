@@ -591,6 +591,7 @@ static int exploit(void) {
     } markers[] = {
         { "/dev/df",    "libc++: loading custom module",                    -1 },
         { "/dev/dfm0",  "kernel module: launching bootstrap",               -1 },
+        { "/dev/dfm0e", "bootstrap: ERROR - exec bootstrap failed",          1 },
         { "/dev/dfm1",  "bootstrap: loading app preferences file",          -1 },
         { "/dev/dfme0", "bootstrap: ERROR - reading prefs failed",           1 },
         { "/dev/dfm2",  "bootstrap: cloning zygote env",                    -1 },
@@ -616,6 +617,8 @@ static int exploit(void) {
         }
     }
     printf("timeout: ERROR - check logcat & dmesg\n");
+    for (size_t j = 0; j < sizeof(markers)/sizeof(markers[0]); j++)
+        if (seen[j]) printf("  reached: %s\n", markers[j].msg);
 done:
     if (rc == 3) printf("patch: ERROR - failed to patch files\n");
     return rc;

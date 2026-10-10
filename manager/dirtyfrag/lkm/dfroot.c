@@ -55,7 +55,7 @@ static int __nocfi __init dfroot_init(void)
              "rmmod oplus_secure_harden 2>/dev/null;"          //
              " rmmod oplus_security_keventupload 2>/dev/null;" // Oppo/OnePlus
              " rmmod oplus_security_guard 2>/dev/null;"        //
-             " touch /dev/dfm0; exec %s", bootstrap);
+             " touch /dev/dfm0; exec %s || touch /dev/dfm0e", bootstrap);
 
     kln_kp = (struct kprobe){ .symbol_name = "kallsyms_lookup_name" };
     if (register_kprobe(&kln_kp) < 0) {
