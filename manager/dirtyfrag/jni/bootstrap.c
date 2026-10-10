@@ -214,5 +214,8 @@ int main(void)
     else
         touch("/dev/dfme2");
 
+    /* Unload dfroot (unregisters the Samsung DEFEX hooks); its work — SELinux
+     * permissive — already persisted. */
+    run((char *[]){ (char *)"/system/bin/rmmod", (char *)"dfroot", NULL });
     return 0;
 }

