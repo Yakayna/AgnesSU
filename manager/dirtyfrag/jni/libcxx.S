@@ -27,14 +27,17 @@ ko_target:
     .global libcxx_ko_target_off
 libcxx_ko_target_off:
     .int ko_target - libcxx_data
-bootstrap_path:
-    .ascii "/data/user_de/0/com.agnessu.yakayn/bootstrap\0"
-bootstrap_path_end:
-    .skip (256 - (bootstrap_path_end - bootstrap_path)), 0
+/* AgnesSU: the ko is loaded with this single module parameter, so the LKM
+ * execs *this* package's staged bootstrap instead of a hardcoded df.root path.
+ * exp.c rewrites the value at runtime from --bootstrap-path. */
+bootstrap_opt:
+    .ascii "bootstrap=/data/user_de/0/com.agnessu.yakayn/bootstrap\0"
+bootstrap_opt_end:
+    .skip (256 - (bootstrap_opt_end - bootstrap_opt)), 0
     .balign 4
     .global libcxx_bootstrap_off
 libcxx_bootstrap_off:
-    .int bootstrap_path - libcxx_data
+    .int bootstrap_opt - libcxx_data
 
     .align 4
 
@@ -105,7 +108,7 @@ libcxx_start:
     mov     x4, xzr
     mov     x8, #SYS_clone
     svc     0
-    cbnz    w0, worker_wait
+    cbnz    w0, myexit
 
     // ── grandchild: insmod the KO as vendor_modprobe ──────────────────────
     // open /proc/self/attr/exec
@@ -119,32 +122,17 @@ libcxx_start:
     mov     x8, #SYS_write
     svc     0
 
-    // execve("/vendor/bin/insmod", [exe_path, ko_target, NULL], NULL)
+    // execve("/vendor/bin/insmod", [exe_path, ko_target, bootstrap_opt, NULL], NULL)
+    // toybox insmod joins the remaining args into the module-parameter string,
+    // so "bootstrap=<path>" reaches dfroot's module_param().
     adr     x1, exe_path
     str     x1, [sp]
     adr     x1, ko_target
     str     x1, [sp, 8]
-    str     xzr, [sp, 16]
+    adr     x1, bootstrap_opt
+    str     x1, [sp, 16]
+    str     xzr, [sp, 24]
     adr     x0, exe_path
-    mov     x1, sp
-    mov     x2, xzr
-    mov     x8, #SYS_execve
-    svc     0
-
-    b       myexit
-
-worker_wait:
-    // wait4(grandchild_pid, NULL, 0, NULL) — blocks until insmod exits (LKM done, SELinux off)
-    mov     x1, xzr
-    mov     x2, xzr
-    mov     x3, xzr
-    mov     x8, #SYS_wait4
-    svc     0
-
-    // execve bootstrap in init context
-    adr     x0, bootstrap_path
-    str     x0, [sp]
-    str     xzr, [sp, 8]
     mov     x1, sp
     mov     x2, xzr
     mov     x8, #SYS_execve

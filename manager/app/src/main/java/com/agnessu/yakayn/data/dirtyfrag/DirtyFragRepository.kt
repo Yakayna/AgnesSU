@@ -7,6 +7,7 @@ import android.net.IpSecManager
 import android.net.IpSecTransform
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.agnessu.yakayn.BuildConfig
 import df.root.ExploitRunner
 import df.root.IReporter
 import java.io.File
@@ -76,6 +77,7 @@ class DirtyFragRepository(private val context: Context) {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun runExploit(reporter: IReporter): Int {
+        reportDeviceInfo(reporter)
         writePrefs()
 
         val ipsec = context.getSystemService(Context.IPSEC_SERVICE) as IpSecManager
@@ -138,6 +140,16 @@ class DirtyFragRepository(private val context: Context) {
         }
     }
 
+    /** Same device banner DFRoot's ExploitRunner prints before attacking. */
+    private fun reportDeviceInfo(reporter: IReporter) {
+        reporter.report("* app version: ${BuildConfig.VERSION_NAME}\n")
+        reporter.report("* manufacturer: ${snapshot.manufacturer}\n")
+        reporter.report("* model: ${snapshot.model}\n")
+        reporter.report("* android version: ${Build.VERSION.RELEASE}\n")
+        reporter.report("* security patch: ${Build.VERSION.SECURITY_PATCH}\n")
+        reporter.report("* kernel version: ${snapshot.kernelVersionFull}\n\n")
+    }
+
     /**
      * bootstrap reads these from device-protected storage before it late-loads
      * ksud. `disable_modules` stays false on a fresh root — there are no modules
@@ -164,9 +176,10 @@ class DirtyFragRepository(private val context: Context) {
 
     /**
      * Copy the DFRoot post-root stage (libbootstrap.so) to `<deDataDir>/bootstrap`
-     * — the path the ko executes (patched in at runtime from --bootstrap-path).
-     * This stage is what sets partitions read-only before ksud starts; skipping
-     * it is the Samsung reboot regression.
+     * — the path the ko executes. --bootstrap-path patches it into the shellcode
+     * as the ko's `bootstrap=` module parameter, so the LKM execs this package's
+     * copy even on spoofed builds. This stage is what sets partitions read-only
+     * before ksud starts; skipping it is the Samsung reboot regression.
      */
     private fun stageBootstrap(reporter: IReporter) {
         stageNative(context.applicationInfo.nativeLibraryDir, "libbootstrap.so", "bootstrap", reporter)

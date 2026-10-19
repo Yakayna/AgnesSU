@@ -5,9 +5,9 @@ import android.system.Os
 import android.system.OsConstants
 
 /**
- * Kernel families the embedded dirtyfrag_ko_* blobs target. 4.14 and 6.1 are
- * deliberately unsupported; the native engine matches `uname` against the
- * bundled blobs and reports "unsupported kernel" otherwise.
+ * Kernel families the embedded dirtyfrag_ko_* blobs target: 5.10 / 5.15 / 6.1 /
+ * 6.6 / 6.12 / 6.18 (Android 12-17). Families outside that list are rejected by
+ * the native engine with "unsupported kernel".
  */
 data class DirtyFragDeviceSnapshot(
     val manufacturer: String,

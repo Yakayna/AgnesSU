@@ -9,25 +9,28 @@
 #include <unistd.h>
 
 #define BLKROSET   0x125d
+#define KSUD       "/data/adb/ksud"
 #define MODULES_DIR "/data/adb/modules"
 
-/* ksud and the prefs file live next to us in device-protected storage. Derive
- * them from /proc/self/exe (the ko execs us as <de>/<package>/bootstrap) so a
- * spoofed/renamed build resolves its own package instead of a hardcoded one. */
-static char g_base[256];
+/* AgnesSU: the ko execs us as <de>/<package>/bootstrap (path passed to insmod as
+ * the "bootstrap=" module parameter), so derive ksud and the prefs file from
+ * /proc/self/exe. That keeps spoofed/renamed builds working without a
+ * hardcoded package name. */
 static char g_ksud[256];
 static char g_prefs[256];
 
 static int resolve_paths(void)
 {
-    ssize_t n = readlink("/proc/self/exe", g_base, sizeof(g_base) - 1);
+    ssize_t n = readlink("/proc/self/exe", g_ksud, sizeof(g_ksud) - 1);
     if (n <= 0) return -1;
-    g_base[n] = '\0';
-    char *slash = strrchr(g_base, '/');
+    g_ksud[n] = '\0';
+    char *slash = strrchr(g_ksud, '/');
     if (!slash) return -1;
     slash[1] = '\0'; /* dirname: /data/user_de/0/<package>/ */
-    snprintf(g_ksud, sizeof(g_ksud), "%sksud", g_base);
-    snprintf(g_prefs, sizeof(g_prefs), "%sshared_prefs/dirtyfrag.xml", g_base);
+    snprintf(g_prefs, sizeof(g_prefs), "%sshared_prefs/dirtyfrag.xml", g_ksud);
+    n = (ssize_t)strlen(g_ksud);
+    if (n + 5 >= (ssize_t)sizeof(g_ksud)) return -1;
+    memcpy(g_ksud + n, "ksud", 5);
     return 0;
 }
 
@@ -135,12 +138,46 @@ static int set_partitions_ro(void)
     return 0;
 }
 
-static int run(char *const argv[])
+static int late_load_running(void)
+{
+    DIR *d = opendir("/proc");
+    if (!d)
+        return 0;
+    struct dirent *e;
+    char path[64], buf[256];
+    int found = 0;
+    while ((e = readdir(d)) != NULL) {
+        char *end;
+        strtol(e->d_name, &end, 10);
+        if (*end) continue;
+        snprintf(path, sizeof(path), "/proc/%s/cmdline", e->d_name);
+        int fd = open(path, O_RDONLY | O_CLOEXEC);
+        if (fd < 0) continue;
+        int n = read(fd, buf, sizeof(buf) - 1);
+        close(fd);
+        if (n <= 0) continue;
+        buf[n] = '\0';
+        for (int i = 0; i < n; i++)
+            if (!buf[i]) buf[i] = ' ';
+        if (strstr(buf, "ksud") && strstr(buf, "late-load")) {
+            found = 1;
+            break;
+        }
+    }
+    closedir(d);
+    return found;
+}
+
+static int run_ctx(const char *ctx, char *const argv[])
 {
     pid_t pid = fork();
     if (pid < 0)
         return -1;
     if (pid == 0) {
+        if (ctx) {
+            int fd = open("/proc/self/attr/exec", O_WRONLY);
+            if (fd >= 0) { write(fd, ctx, strlen(ctx)); close(fd); }
+        }
         execv(argv[0], argv);
         _exit(127);
     }
@@ -203,19 +240,16 @@ int main(void)
         }
     }
 
-    touch("/dev/dfm5");
-    char **late_load;
-    if (soft_reboot)
-        late_load = (char *[]){ g_ksud, "late-load", "--package-name", su_manager, "--soft-reboot", NULL };
-    else
-        late_load = (char *[]){ g_ksud, "late-load", "--package-name", su_manager, NULL };
-    if (run(late_load) == 0)
+    touch("/dev/dfm5");    
+    if (run_ctx(NULL, (char *[]){ g_ksud, "late-load", "--package-name", su_manager, NULL }) == 0) {
         touch("/dev/dfm6");
-    else
+        if (soft_reboot) {
+            while (late_load_running()) sleep(1);
+            run_ctx("u:r:ksu:s0", (char *[]){ KSUD, "soft-reboot", NULL });
+        }
+    } else {
         touch("/dev/dfme2");
-
-    /* Unload dfroot (unregisters the Samsung DEFEX hooks); its work — SELinux
-     * permissive — already persisted. */
-    run((char *[]){ (char *)"/system/bin/rmmod", (char *)"dfroot", NULL });
+    }
+        
     return 0;
 }

