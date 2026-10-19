@@ -60,6 +60,9 @@ enum class DirtyFragInstallPhase {
 data class DirtyFragUiState(
     val phase: DirtyFragInstallPhase = DirtyFragInstallPhase.Checking,
     val log: String = "",
+    /** The shellcode's /dev/df mutex already exists, so init was hooked on an
+     *  earlier run this boot and DirtyFrag cannot run again until reboot. */
+    val rebootRequired: Boolean = false,
 ) {
     val busy: Boolean
         get() = phase in setOf(

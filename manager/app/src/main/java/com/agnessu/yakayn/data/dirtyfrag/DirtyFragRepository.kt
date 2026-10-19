@@ -6,18 +6,22 @@ import android.net.IpSecAlgorithm
 import android.net.IpSecManager
 import android.net.IpSecTransform
 import android.os.Build
+import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import com.agnessu.yakayn.BuildConfig
+import com.agnessu.yakayn.Natives
 import df.root.ExploitRunner
 import df.root.IReporter
 import java.io.File
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.security.SecureRandom
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,9 +51,26 @@ class DirtyFragRepository(private val context: Context) {
 
     init {
         scope.launch {
+            // Same signal Home uses for "installed": the KernelSU driver answers
+            // and recognises this manager. Do NOT probe a root shell here — the
+            // manager process only gets the driver fd when it is (re)started by
+            // the kernel's zygote hook, so a stale process cannot see it anyway.
+            val active = isAgnesSuActive()
+            val hooked = !active && hookedThisBoot()
             _state.value = DirtyFragUiState(
-                phase = DirtyFragInstallPhase.Ready,
-                log = "kernel: ${snapshot.kernelVersionFull}",
+                phase = when {
+                    active -> DirtyFragInstallPhase.Installed
+                    hooked -> DirtyFragInstallPhase.Failed
+                    else -> DirtyFragInstallPhase.Ready
+                },
+                log = buildString {
+                    append("kernel: ${snapshot.kernelVersionFull}")
+                    when {
+                        active -> append("\n[*] AgnesSU already active, no need to run DirtyFrag")
+                        hooked -> append("\n[!] init was already hooked on this boot; reboot required before running DirtyFrag")
+                    }
+                },
+                rebootRequired = hooked,
             )
         }
     }
@@ -63,14 +84,92 @@ class DirtyFragRepository(private val context: Context) {
                 require(snapshot.isAarch64) { "aarch64 required" }
                 require(snapshot.isApiSupported) { "Android 10+ required" }
                 val reporter = IReporter { appendLog(it) }
+                if (isAgnesSuActive()) {
+                    _state.value = _state.value.copy(rebootRequired = false)
+                    setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU already active")
+                    return@launch
+                }
+
+                // The libc++ shellcode creates /dev/df as an O_EXCL mutex the
+                // first time it runs. While it exists the init hook cannot be
+                // installed again this boot, so retrying would only time out or
+                // report a false success (the upstream engine's own guard).
+                if (hookedThisBoot()) {
+                    _state.value = _state.value.copy(rebootRequired = true)
+                    throw IllegalStateException(
+                        "init was already hooked on this boot but AgnesSU is not active; " +
+                            "reboot the device, then run DirtyFrag again",
+                    )
+                }
+
                 setPhase(DirtyFragInstallPhase.Exploiting, "[*] Running DirtyFrag (CVE-2026-43284)")
                 val code = runExploit(reporter)
+                if (code == 4) {
+                    // /dev/df appeared between the pre-check and the engine start
+                    // (e.g. a concurrent attempt); the retry needs a reboot.
+                    _state.value = _state.value.copy(rebootRequired = true)
+                    throw IllegalStateException("init was already hooked on this boot; reboot the device before running DirtyFrag again")
+                }
+                if (code != 0 && isAgnesSuActive()) {
+                    // The engine failed late, but the previous stage already
+                    // brought KernelSU up; do not report a failure then.
+                    setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
+                    return@launch
+                }
                 require(code == 0) { "DirtyFrag returned $code" }
-                setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
-                appendLog("[*] Root complete")
+
+                // Exit code 0 only means ksud accepted the late-load request:
+                // ksud daemonizes immediately, so the module can still be
+                // loading (or fail later). Wait for the driver to answer before
+                // claiming success. On success ksud force-stops this app, so this
+                // poll usually dies with the process and the restarted app's
+                // init() is the authority; a surviving process that never sees
+                // the driver has genuinely failed.
+                appendLog("[*] late-load dispatched, waiting for AgnesSU...")
+                if (awaitAgnesSuActive()) {
+                    _state.value = _state.value.copy(rebootRequired = false)
+                    setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
+                    appendLog("[*] Root complete")
+                } else {
+                    _state.value = _state.value.copy(rebootRequired = hookedThisBoot())
+                    throw IllegalStateException(
+                        "late-load did not bring AgnesSU up in time; check the log above. " +
+                            "If it actually succeeded, restart this app to re-check; otherwise reboot before retrying.",
+                    )
+                }
             } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                if (hookedThisBoot()) {
+                    _state.value = _state.value.copy(rebootRequired = true)
+                }
                 appendLog("[-] ${error.message ?: error.javaClass.simpleName}")
                 setPhase(DirtyFragInstallPhase.Failed, "[*] Root failed")
+            }
+        }
+    }
+
+    /**
+     * Re-check the live state, e.g. when the screen is shown again after
+     * late-load restarted the app. Never interferes with a running install.
+     */
+    fun refresh() {
+        if (installJob?.isActive == true) return
+        scope.launch {
+            if (isAgnesSuActive()) {
+                _state.value = _state.value.copy(rebootRequired = false)
+                if (_state.value.phase != DirtyFragInstallPhase.Installed) {
+                    setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
+                }
+            } else {
+                val hooked = hookedThisBoot()
+                _state.value = _state.value.copy(
+                    rebootRequired = hooked,
+                    phase = if (_state.value.phase == DirtyFragInstallPhase.Installed) {
+                        DirtyFragInstallPhase.Ready
+                    } else {
+                        _state.value.phase
+                    },
+                )
             }
         }
     }
@@ -138,6 +237,24 @@ class DirtyFragRepository(private val context: Context) {
             runCatching { spi.close() }
             runCatching { encapSock.close() }
         }
+    }
+
+    /** KernelSU is up and recognises this manager — the same signal Home uses
+     *  for "installed". */
+    private fun isAgnesSuActive(): Boolean =
+        runCatching { Natives.isManager }.getOrDefault(false)
+
+    /** /dev/df is the shellcode's O_EXCL mutex: present once init was hooked. */
+    private fun hookedThisBoot(): Boolean = File("/dev/df").exists()
+
+    /** Poll the (cheap) driver check; ksud daemonizes, so readiness is delayed. */
+    private suspend fun awaitAgnesSuActive(timeoutMs: Long = 60_000): Boolean {
+        val start = SystemClock.elapsedRealtime()
+        while (SystemClock.elapsedRealtime() - start < timeoutMs) {
+            if (isAgnesSuActive()) return true
+            delay(1_000)
+        }
+        return isAgnesSuActive()
     }
 
     /** Same device banner DFRoot's ExploitRunner prints before attacking. */

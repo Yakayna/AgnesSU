@@ -23,11 +23,15 @@ static const char kCrashDump[] = "/apex/com.android.runtime/bin/crash_dump64";
 static char    *libcxx_ko_target;
 static char    *libcxx_bootstrap_opt;
 
+/* Length of the shellcode's "bootstrap=<path>" data slot; must match the
+ * .skip size of bootstrap_opt in libcxx.S. */
+#define BOOTSTRAP_OPT_LEN 128
+
 /* AgnesSU: runtime bootstrap path. It is written into the shellcode's
  * "bootstrap=<path>" slot and passed to the ko as an insmod module parameter,
  * so a spoofed/renamed applicationId resolves its own staged bootstrap.
  * Empty means "keep the compiled-in default". */
-static char g_bootstrap_path[256];
+static char g_bootstrap_path[BOOTSTRAP_OPT_LEN];
 static const char kDefaultBootstrap[] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
 
 static int      g_encap_port;
@@ -549,8 +553,8 @@ static int setup(int argc, char **argv) {
     libcxx_bootstrap_opt = libcxx_data + libcxx_bootstrap_off;
     {
         const char *bp = g_bootstrap_path[0] ? g_bootstrap_path : kDefaultBootstrap;
-        int n = snprintf(libcxx_bootstrap_opt, 256, "bootstrap=%s", bp);
-        if (n < 0 || n >= 256) {
+        int n = snprintf(libcxx_bootstrap_opt, BOOTSTRAP_OPT_LEN, "bootstrap=%s", bp);
+        if (n < 0 || n >= BOOTSTRAP_OPT_LEN) {
             printf("bootstrap path too long: %s\n", bp);
             return 2;
         }
@@ -565,6 +569,14 @@ static int setup(int argc, char **argv) {
 }
 
 static int exploit(void) {
+    // The shellcode's /dev/df mutex is created once per boot. If it is already
+    // there, init was hooked by an earlier run and this attempt cannot work;
+    // returning success here would be a false positive (stale dfm markers).
+    if (access("/dev/df", F_OK) == 0) {
+        printf("init already hooked on this boot; reboot required\n");
+        return 4;
+    }
+
     printf("\n=== exploit (patching files) ===\n");
 
     int rc = 3;
@@ -597,7 +609,9 @@ static int exploit(void) {
         { "/dev/dfm4",  "bootstrap: disabling ksu modules",                 -1 },
         { "/dev/dfme1", "bootstrap: ERROR - disable modules failed",         1 },
         { "/dev/dfm5",  "bootstrap: starting SU daemon",                    -1 },
-        { "/dev/dfm6",  "ksud start: SUCCESS",                               0 },
+        // ksud late-load daemonizes immediately, so this marker only means
+        // "request dispatched" — the app verifies that KernelSU actually starts.
+        { "/dev/dfm6",  "ksud start: late-load dispatched",                    0 },
         { "/dev/dfme2", "ksud start: ERROR - ksud nonzero exit",             1 },
     };
     int seen[sizeof(markers)/sizeof(markers[0])] = {0};

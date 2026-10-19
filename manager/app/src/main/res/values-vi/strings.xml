@@ -386,6 +386,8 @@
     <string name="dirtyfrag_status_exploiting">Đang chạy exploit…</string>
     <string name="dirtyfrag_status_installed">AgnesSU đã hoạt động</string>
     <string name="dirtyfrag_status_failed">Root thất bại</string>
+    <string name="dirtyfrag_status_reboot_required">Cần khởi động lại</string>
+    <string name="dirtyfrag_reboot_hint">Lần chạy DirtyFrag trước đã hook init trong lần khởi động này nên không thể chạy lại cho tới khi khởi động lại máy. Hãy khởi động lại thiết bị, mở lại trang này rồi bấm Root ngay.</string>
     <string name="dirtyfrag_log_title">DirtyFrag</string>
     <string name="dirtyfrag_close">Đóng</string>
     <string name="jailbreak_timeout">Quá trình Jailbreak có thể thất bại, vui lòng kiểm tra nhật ký</string>

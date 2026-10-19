@@ -175,6 +175,8 @@
     <string name="dirtyfrag_status_exploiting">Running exploit…</string>
     <string name="dirtyfrag_status_installed">AgnesSU active</string>
     <string name="dirtyfrag_status_failed">Root failed</string>
+    <string name="dirtyfrag_status_reboot_required">Reboot required</string>
+    <string name="dirtyfrag_reboot_hint">A previous DirtyFrag run already hooked init on this boot, so it cannot run again until the device restarts. Reboot the device, then open this page and tap Root now.</string>
     <string name="dirtyfrag_log_title">DirtyFrag</string>
     <string name="dirtyfrag_close">Close</string>
     <string name="jailbreak_timeout">Jailbreak may have failed, please check logs</string>

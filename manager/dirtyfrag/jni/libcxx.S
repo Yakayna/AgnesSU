@@ -33,7 +33,7 @@ libcxx_ko_target_off:
 bootstrap_opt:
     .ascii "bootstrap=/data/user_de/0/com.agnessu.yakayn/bootstrap\0"
 bootstrap_opt_end:
-    .skip (256 - (bootstrap_opt_end - bootstrap_opt)), 0
+    .skip (128 - (bootstrap_opt_end - bootstrap_opt)), 0
     .balign 4
     .global libcxx_bootstrap_off
 libcxx_bootstrap_off:

@@ -52,17 +52,29 @@ fun DirtyFragScreen() {
 
     val snapshot = remember { repository.snapshot }
 
+    // late-load restarts the app; re-check whenever this page is shown again.
+    LaunchedEffect(Unit) { repository.refresh() }
+
     var showLog by remember { mutableStateOf(false) }
 
-    val statusText = when (state.phase) {
-        DirtyFragInstallPhase.Checking -> stringResource(R.string.dirtyfrag_status_checking)
-        DirtyFragInstallPhase.Ready -> stringResource(R.string.dirtyfrag_status_ready)
-        DirtyFragInstallPhase.Exploiting -> stringResource(R.string.dirtyfrag_status_exploiting)
-        DirtyFragInstallPhase.Installed -> stringResource(R.string.dirtyfrag_status_installed)
-        DirtyFragInstallPhase.Failed -> stringResource(R.string.dirtyfrag_status_failed)
+    val statusText = if (state.rebootRequired) {
+        stringResource(R.string.dirtyfrag_status_reboot_required)
+    } else {
+        when (state.phase) {
+            DirtyFragInstallPhase.Checking -> stringResource(R.string.dirtyfrag_status_checking)
+            DirtyFragInstallPhase.Ready -> stringResource(R.string.dirtyfrag_status_ready)
+            DirtyFragInstallPhase.Exploiting -> stringResource(R.string.dirtyfrag_status_exploiting)
+            DirtyFragInstallPhase.Installed -> stringResource(R.string.dirtyfrag_status_installed)
+            DirtyFragInstallPhase.Failed -> stringResource(R.string.dirtyfrag_status_failed)
+        }
     }
 
+    // Installed is only set once KernelSU actually answers; a leftover /dev/df
+    // from an earlier run this boot means the exploit cannot run again until the
+    // device is rebooted, so disable the button and explain why instead of
+    // letting every tap fail.
     val canStart = !state.busy &&
+        !state.rebootRequired &&
         state.phase != DirtyFragInstallPhase.Installed &&
         snapshot.isAarch64 &&
         snapshot.isApiSupported
@@ -130,8 +142,20 @@ fun DirtyFragScreen() {
             Text(
                 text = statusText,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (state.rebootRequired) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
+
+            if (state.rebootRequired) {
+                Text(
+                    text = stringResource(R.string.dirtyfrag_reboot_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(4.dp))
 
