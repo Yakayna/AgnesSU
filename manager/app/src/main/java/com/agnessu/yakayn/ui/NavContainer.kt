@@ -52,7 +52,6 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.agnessu.yakayn.ui.screen.GhostlockScreen
 import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
-import com.agnessu.yakayn.ui.screen.SamsungRootScreen
 import kotlin.coroutines.resume
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
@@ -550,17 +549,6 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     GhostlockScreen()
-                }
-            }
-            entry<Route.SamsungRoot>(swipeDismiss = swipeBackDirection) {
-                ManagerNavEntry(
-                    interceptPredictiveBack = interceptPredictiveBack,
-                    onBack = onBack,
-                    themeConfig = themeConfig,
-                    backgroundRenderState = backgroundRenderState,
-                    useBlur = useBlur,
-                ) {
-                    SamsungRootScreen()
                 }
             }
             entry<Route.DirtyFrag>(swipeDismiss = swipeBackDirection) {

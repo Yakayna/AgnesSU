@@ -156,10 +156,6 @@ sealed interface Route :
 
     @Parcelize
     @Serializable
-    data object SamsungRoot : Route
-
-    @Parcelize
-    @Serializable
     data object DirtyFrag : Route
 
     @Parcelize

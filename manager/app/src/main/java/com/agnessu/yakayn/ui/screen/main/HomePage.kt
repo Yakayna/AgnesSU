@@ -646,10 +646,9 @@ private fun StatusCard(
                     } else null
                 )
 
-                // GhostLock + Samsung + DirtyFrag one-tap root sit below the
-                // red "not installed" card instead of inside its trailing slot,
-                // so the buttons no longer squeeze the card down. FlowRow wraps
-                // the third button onto a second line on narrow screens.
+                // GhostLock + DirtyFrag one-tap root sit below the red
+                // "not installed" card instead of inside its trailing slot,
+                // so the buttons no longer squeeze the card down.
                 if (Os.uname().machine == "aarch64") {
                     Spacer(modifier = Modifier.height(10.dp))
                     FlowRow(
@@ -657,7 +656,6 @@ private fun StatusCard(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         GhostlockButton()
-                        SamsungRootButton()
                         DirtyFragButton()
                     }
                 }

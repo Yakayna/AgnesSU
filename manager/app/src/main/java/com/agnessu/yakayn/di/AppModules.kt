@@ -43,8 +43,6 @@ import com.agnessu.yakayn.data.packageinfo.RootServiceRepository
 import com.agnessu.yakayn.data.packageinfo.SuperUserRepository
 import com.agnessu.yakayn.data.profile.ProfileRepository
 import com.agnessu.yakayn.data.profile.ProfileTemplateRepository
-import com.agnessu.yakayn.data.samsung.SamsungPayloadRepository
-import com.agnessu.yakayn.data.samsung.SamsungRootRepository
 import com.agnessu.yakayn.data.settings.LocaleHelper
 import com.agnessu.yakayn.data.settings.LocaleRepository
 import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
@@ -267,7 +265,7 @@ val repositoryModule = module {
     singleOf(::HomeStateRepository)
     singleOf(::NetworkStatusRepository)
     singleOf(::NetworkRequestRepository)
-    single { ShizukuExploitRunner() }
+    single { ShizukuExploitRunner(androidApplication()) }
     single { AssetConfigLoader(androidApplication()) }
     single { BuiltinProfileCatalog(get()) }
     single { UserProfileStore(androidApplication(), get()) }
@@ -278,14 +276,6 @@ val repositoryModule = module {
             userStore = get(),
             shizukuRunner = get(),
             assetLoader = get(),
-        )
-    }
-    single { SamsungPayloadRepository(androidApplication()) }
-    single {
-        SamsungRootRepository(
-            context = androidApplication(),
-            shizukuRunner = get(),
-            payloadRepository = get(),
         )
     }
     single { DirtyFragRepository(androidApplication()) }

@@ -34,31 +34,8 @@ fun GhostlockButton(
 }
 
 /**
- * Home-screen entry point into the Samsung one-tap root page (Root-My-Galaxy
- * engine, [Beta]). Lives next to the GhostLock button on the install card.
- */
-@Composable
-fun SamsungRootButton(
-    modifier: Modifier = Modifier,
-) {
-    val navigator = LocalNavigator.current
-
-    Button(
-        onClick = { navigator.push(Route.SamsungRoot) },
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-        ),
-    ) {
-        Text(stringResource(R.string.home_samsung_root))
-    }
-}
-
-/**
  * Home-screen entry point into the DirtyFrag one-tap root page (CVE-2026-43284,
- * [Beta]). Cross-OEM fast channel — the third root method next to GhostLock and
- * Samsung.
+ * [Beta]). Cross-OEM fast channel — the second root method next to GhostLock.
  */
 @Composable
 fun DirtyFragButton(
