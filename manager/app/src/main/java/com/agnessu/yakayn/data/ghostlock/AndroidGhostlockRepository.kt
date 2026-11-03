@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import android.system.Os
 import android.util.Log
+import com.agnessu.yakayn.Natives
 import com.agnessu.yakayn.data.ghostlock.ota.OtaPayloadExtractor
 import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.shizuku.ShizukuStatus
@@ -479,6 +480,22 @@ class AndroidGhostlockRepository(
 
             _exploitState.value = ExploitState.Finished(exitCode, emptyList())
 
+            // The native pipeline exits 0 only for Completed/DiagnosticStop; a
+            // nonzero code means it rejected the run or a stage failed. Reporting
+            // success for every exit code showed the "rooted" toast after a run
+            // that never reached the handoff.
+            if (exitCode != 0) {
+                return@withContext Result.failure(
+                    IllegalStateException("GhostLock failed (exit $exitCode)"),
+                )
+            }
+            // Exit 0 only says the handoff ran. The kernel module can still fail
+            // after ksud daemonizes, and a process that survives the manager
+            // restart never receives a ksu fd, so it cannot crown itself; Home is
+            // the authority on the next launch.
+            if (!runCatching { Natives.isManager }.getOrDefault(false)) {
+                onLog("<s> warning: not recognised as root yet; reopen the app to verify")
+            }
             Result.success(exitCode)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -518,6 +535,12 @@ class AndroidGhostlockRepository(
                 environment()["GHOSTLOCK_HOME"] = workDir.absolutePath
                 environment()["TMPDIR"] = workDir.absolutePath
                 environment()["HOME"] = workDir.absolutePath
+                // Native resolves the root script's KSUD from this path when
+                // set, so pin it to the staged AgnesSU ksud instead of letting
+                // the script's /data/app search order pick another manager.
+                File(workDir, "ksud")
+                    .takeIf { it.isFile }
+                    ?.let { ksud -> environment()["GHOSTLOCK_KSUD"] = ksud.absolutePath }
             }
             .start()
 
@@ -582,10 +605,10 @@ class AndroidGhostlockRepository(
 
     private fun prepareKsud(workDir: File, onLog: (String) -> Unit) {
         val source = File(context.applicationInfo.nativeLibraryDir, "libksud.so")
-        if (!source.isFile) {
-            onLog("warning: libksud.so missing")
-            return
-        }
+        // GhostLock must root *this* manager: without its ksud the native root
+        // script falls back to another installed manager's ksud, handing root to
+        // that package instead. Refuse the run instead of doing that silently.
+        check(source.isFile) { "libksud.so missing from native library dir" }
         val output = File(workDir, "ksud")
         if (output.isFile && output.length() == source.length()) {
             onLog("ksud already staged")

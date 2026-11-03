@@ -13,6 +13,7 @@ interface IGhostlockUserService {
         boolean forceAttack,
         in byte[] profileBlob,
         @nullable String debugDir,
+        String nativeLibDir,
         IGhostlockCallback callback,
         IGhostlockStatusCallback statusCallback
     ) = 1;

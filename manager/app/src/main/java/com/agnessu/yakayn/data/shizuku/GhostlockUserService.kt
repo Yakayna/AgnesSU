@@ -27,6 +27,7 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
         forceAttack: Boolean,
         profileBlob: ByteArray,
         debugDir: String?,
+        nativeLibDir: String,
         callback: IGhostlockCallback,
         statusCallback: IGhostlockStatusCallback,
     ) {
@@ -39,7 +40,7 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
             try {
                 doRunExploit(
                     primaryCpu, consumerCpu, safeMode, forceAttack,
-                    profileBlob, debugDir, callback, statusCallback,
+                    profileBlob, debugDir, nativeLibDir, callback, statusCallback,
                 )
             } catch (e: Exception) {
                 runCatching { callback.onLog("<s> error: ${e.message}") }
@@ -60,6 +61,7 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
         forceAttack: Boolean,
         profileBlob: ByteArray,
         debugDir: String?,
+        nativeLibDir: String,
         callback: IGhostlockCallback,
         statusCallback: IGhostlockStatusCallback,
     ) {
@@ -71,12 +73,13 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
             return
         }
 
-        val nativeLibDir = findNativeLibDir() ?: run {
+        val resolvedLibDir = nativeLibDir.ifBlank { findNativeLibDir().orEmpty() }
+        if (resolvedLibDir.isBlank()) {
             callback.onLog("<s> error: cannot locate native lib dir")
             callback.onComplete(1)
             return
         }
-        val binary = File(nativeLibDir, "libghostlock.so")
+        val binary = File(resolvedLibDir, "libghostlock.so")
         if (!binary.isFile) {
             callback.onLog("<s> error: missing ${binary.absolutePath}")
             callback.onComplete(1)
@@ -90,7 +93,11 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
         // the root script's $HOME_DIR/ksud resolves here instead of falling back
         // to another manager's ksud (whose module UAPI version mismatches the
         // manager and shows "kernel upgrade required").
-        stageKsud(nativeLibDir, workDir, callback)
+        if (!stageKsud(resolvedLibDir, workDir, callback)) {
+            callback.onLog("<s> error: libksud.so missing; refusing to root another manager")
+            callback.onComplete(1)
+            return
+        }
 
         val logFile = File(workDir, ".ghostlock_native.log")
         logFile.writeText("")
@@ -111,6 +118,7 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
             .redirectOutput(logFile)
             .apply {
                 environment()["GHOSTLOCK_HOME"] = workDir.absolutePath
+                environment()["GHOSTLOCK_KSUD"] = File(workDir, "ksud").absolutePath
                 environment()["TMPDIR"] = workDir.absolutePath
                 environment()["HOME"] = workDir.absolutePath
             }
@@ -164,23 +172,25 @@ class GhostlockUserService : IGhostlockUserService.Stub() {
         nativeLibDir: String,
         workDir: File,
         callback: IGhostlockCallback,
-    ) {
+    ): Boolean {
         val source = File(nativeLibDir, "libksud.so")
         if (!source.isFile) {
             callback.onLog("<s> warning: libksud.so missing")
-            return
+            return false
         }
         val output = File(workDir, "ksud")
         if (output.isFile && output.length() == source.length()) {
             callback.onLog("<s> ksud already staged")
-            return
+            return true
         }
-        runCatching {
+        return runCatching {
             source.inputStream().use { inp -> output.outputStream().use { inp.copyTo(it) } }
             Os.chmod(output.absolutePath, 0b111101101)
             callback.onLog("<s> ksud staged -> ${output.absolutePath}")
-        }.onFailure {
+            true
+        }.getOrElse {
             callback.onLog("<s> ksud copy failed: ${it.message}")
+            false
         }
     }
 
