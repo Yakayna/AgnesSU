@@ -32,18 +32,26 @@ if [ -z "$cargo_bin" ]; then
   exit 0
 fi
 
-# --- resolve NDK (same precedence as build_payload.sh) ----------------------------
-NDK_ROOT="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
-if [ -z "$NDK_ROOT" ] || [ ! -d "$NDK_ROOT" ]; then
-  SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-  if [ -n "$SDK" ] && [ -d "$SDK/ndk/$NDK_VERSION" ]; then
-    NDK_ROOT="$SDK/ndk/$NDK_VERSION"
-  fi
+# Resolve the NDK pinned by the Gradle build first: CI runners export
+# ANDROID_NDK_HOME for an older NDK (27.x) whose bionic headers still define
+# the PAGE_SIZE macro, and building the payload with a different toolchain
+# than AGP's is what breaks compilation. Fall back to the explicit env only
+# when the pinned version is not installed.
+NDK_ROOT=""
+SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [ -n "$SDK" ] && [ -d "$SDK/ndk/$NDK_VERSION" ]; then
+  NDK_ROOT="$SDK/ndk/$NDK_VERSION"
 fi
-if [ -z "$NDK_ROOT" ] || [ ! -d "$NDK_ROOT" ]; then
+if [ -z "$NDK_ROOT" ]; then
   SDK_DIR="$(sed -n 's/^sdk\.dir=//p' "$ROOT/local.properties" 2>/dev/null | tr -d '\r' | head -1)"
   if [ -n "$SDK_DIR" ] && [ -d "$SDK_DIR/ndk/$NDK_VERSION" ]; then
     NDK_ROOT="$SDK_DIR/ndk/$NDK_VERSION"
+  fi
+fi
+if [ -z "$NDK_ROOT" ]; then
+  CANDIDATE="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
+  if [ -n "$CANDIDATE" ] && [ -d "$CANDIDATE" ]; then
+    NDK_ROOT="$CANDIDATE"
   fi
 fi
 : "${NDK_ROOT:?NDK not found — set ANDROID_HOME / ANDROID_NDK_HOME or sdk.dir in local.properties}"
