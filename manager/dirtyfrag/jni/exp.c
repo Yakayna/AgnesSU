@@ -23,14 +23,11 @@ static const char kCrashDump[] = "/apex/com.android.runtime/bin/crash_dump64";
 static char    *libcxx_ko_target;
 static char    *libcxx_bootstrap_opt;
 
-/* Length of the shellcode's "bootstrap=<path>" data slot; must match the
- * .skip size of bootstrap_opt in libcxx.S. */
+/* AgnesSU: the manager runs under a compile-time package name, but spoofed
+ * builds use a randomized applicationId, so the ko cannot hardcode the
+ * bootstrap path. The path is written into the shellcode's "bootstrap=<path>"
+ * slot and passed to the ko as an insmod module parameter. */
 #define BOOTSTRAP_OPT_LEN 128
-
-/* AgnesSU: runtime bootstrap path. It is written into the shellcode's
- * "bootstrap=<path>" slot and passed to the ko as an insmod module parameter,
- * so a spoofed/renamed applicationId resolves its own staged bootstrap.
- * Empty means "keep the compiled-in default". */
 static char g_bootstrap_path[BOOTSTRAP_OPT_LEN];
 static const char kDefaultBootstrap[] = "/data/user_de/0/com.agnessu.yakayn/bootstrap";
 
@@ -319,21 +316,29 @@ static int read_device_versions(int *andr, int *major, int *minor) {
     if (sscanf(u.release, "%d.%d", major, minor) != 2) return -1;
     const char *m = strstr(u.release, "android");
     if (!m) {
+        /* Some vendor kernels drop the "androidNN" token from uname -r, which
+         * leaves nothing to parse here. ro.vendor.build.version.release carries
+         * the same number, so fall back to it - but the popen is untrusted: it
+         * can fail outright, and the property is neither guaranteed numeric nor
+         * short, so nothing is built until a leading integer has actually been
+         * read out of it. */
         printf("uname -r is missing Android version, trying getprop\n");
-
-        char vendor_ver[5];
-        char release[15];
-
+        char vendor_ver[16] = { 0 };
         FILE *f = popen("getprop ro.vendor.build.version.release", "r");
-        fgets(vendor_ver, sizeof(vendor_ver), f);
-        pclose(f);
-
-        sprintf(release, "android");
-        sprintf(eos(release), "%s", vendor_ver);
-
-        m = release;
+        if (f) {
+            if (!fgets(vendor_ver, sizeof(vendor_ver), f))
+                vendor_ver[0] = '\0';
+            pclose(f);
+        }
+        int prop = 0;
+        if (sscanf(vendor_ver, "%d", &prop) != 1 || prop <= 0) {
+            printf("getprop returned no usable Android version\n");
+            return -1;
+        }
+        *andr = prop;
+        return 0;
     }
-    *andr = atoi(m + 7);
+    *andr = atoi(m + strlen("android"));
     return (*andr > 0) ? 0 : -1;
 }
 
@@ -571,7 +576,7 @@ static int setup(int argc, char **argv) {
 static int exploit(void) {
     // The shellcode's /dev/df mutex is created once per boot. If it is already
     // there, init was hooked by an earlier run and this attempt cannot work;
-    // returning success here would be a false positive (stale dfm markers).
+    // reporting success here would be a false positive from stale dfm markers.
     if (access("/dev/df", F_OK) == 0) {
         printf("init already hooked on this boot; reboot required\n");
         return 4;
@@ -609,8 +614,8 @@ static int exploit(void) {
         { "/dev/dfm4",  "bootstrap: disabling ksu modules",                 -1 },
         { "/dev/dfme1", "bootstrap: ERROR - disable modules failed",         1 },
         { "/dev/dfm5",  "bootstrap: starting SU daemon",                    -1 },
-        // ksud late-load daemonizes immediately, so this marker only means
-        // "request dispatched" — the app verifies that KernelSU actually starts.
+        // ksud late-load daemonizes, so this marker only means "dispatched";
+        // the app verifies that KernelSU actually started.
         { "/dev/dfm6",  "ksud start: late-load dispatched",                    0 },
         { "/dev/dfme2", "ksud start: ERROR - ksud nonzero exit",             1 },
     };

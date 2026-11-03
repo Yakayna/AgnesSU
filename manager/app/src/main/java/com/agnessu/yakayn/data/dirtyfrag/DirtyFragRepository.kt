@@ -7,6 +7,7 @@ import android.net.IpSecManager
 import android.net.IpSecTransform
 import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import androidx.annotation.RequiresApi
 import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.Natives
@@ -28,12 +29,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * One-tap DirtyFrag (CVE-2026-43284) root orchestrator, a faithful port of
- * diabl0w/DFRoot. The native engine is a PIE executable (libdfroot.so) run as a
- * subprocess — no JNI. This repository sets up the IpSecManager AES-CBC ESP
- * transform the native primitive relies on, writes the prefs that bootstrap
- * reads, stages both `ksud` and `bootstrap` into device-protected storage, then
- * execs the engine and streams its stdout into the log.
+ * One-tap DirtyFrag (CVE-2026-43284) root orchestrator, reworked after
+ * dugongzi/DirtyFragX (engine from mitschud/DirtyFrag 1.16 / DFRoot 4.5):
+ * the run screen reports Ready / Running / Verifying / Rooted / Failure /
+ * Reboot required, keeps the last run log per boot, and exposes the two
+ * options bootstrap.c reads from device-protected prefs (soft reboot and
+ * disabling KernelSU modules before the late-load).
+ *
+ * Unlike the standalone DirtyFragX app this one always roots *AgnesSU*: ksud is
+ * staged from this app's own nativeLibraryDir and the late-load names this
+ * package, so no other manager is touched.
  */
 class DirtyFragRepository(private val context: Context) {
 
@@ -45,33 +50,27 @@ class DirtyFragRepository(private val context: Context) {
 
     val snapshot: DirtyFragDeviceSnapshot by lazy { DirtyFragDeviceSnapshot.current() }
 
-    /** Device-protected data dir of the *running* package: `/data/user_de/0/<pkg>/`. */
+    private val deContext: Context
+        get() = context.createDeviceProtectedStorageContext()
+
+    /** Device-protected data dir of the *running* package: /data/user_de/0/<pkg>/. */
     private val deDataDir: File
-        get() = context.createDeviceProtectedStorageContext().filesDir.parentFile
+        get() = deContext.filesDir.parentFile
+
+    /** DirtyFragX keeps only the newest run log, and only for the current boot. */
+    private val lastLogFile: File
+        get() = File(deContext.filesDir, LOG_FILE)
 
     init {
         scope.launch {
-            // Same signal Home uses for "installed": the KernelSU driver answers
-            // and recognises this manager. Do NOT probe a root shell here — the
-            // manager process only gets the driver fd when it is (re)started by
-            // the kernel's zygote hook, so a stale process cannot see it anyway.
-            val active = isAgnesSuActive()
-            val hooked = !active && hookedThisBoot()
-            _state.value = DirtyFragUiState(
-                phase = when {
-                    active -> DirtyFragInstallPhase.Installed
-                    hooked -> DirtyFragInstallPhase.Failed
-                    else -> DirtyFragInstallPhase.Ready
-                },
-                log = buildString {
-                    append("kernel: ${snapshot.kernelVersionFull}")
-                    when {
-                        active -> append("\n[*] AgnesSU already active, no need to run DirtyFrag")
-                        hooked -> append("\n[!] init was already hooked on this boot; reboot required before running DirtyFrag")
-                    }
-                },
-                rebootRequired = hooked,
+            val prefs = dePrefs()
+            _state.value = _state.value.copy(
+                softReboot = prefs.getBoolean(PREF_SOFT_REBOOT, false),
+                disableModules = prefs.getBoolean(PREF_DISABLE_MODULES, false),
             )
+            _state.value = _state.value.copy(log = "kernel: ${snapshot.kernelVersionFull}")
+            replayLastLog()
+            refreshLocked(initial = true)
         }
     }
 
@@ -79,11 +78,17 @@ class DirtyFragRepository(private val context: Context) {
     fun install() {
         if (installJob?.isActive == true) return
         installJob = scope.launch {
-            _state.value = DirtyFragUiState(phase = DirtyFragInstallPhase.Checking, log = "")
+            _state.value = _state.value.copy(
+                phase = DirtyFragInstallPhase.Checking,
+                log = "",
+                failureReason = null,
+            )
+            appendLog("kernel: ${snapshot.kernelVersionFull}")
             try {
                 require(snapshot.isAarch64) { "aarch64 required" }
                 require(snapshot.isApiSupported) { "Android 10+ required" }
                 val reporter = IReporter { appendLog(it) }
+
                 if (isAgnesSuActive()) {
                     _state.value = _state.value.copy(rebootRequired = false)
                     setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU already active")
@@ -91,9 +96,7 @@ class DirtyFragRepository(private val context: Context) {
                 }
 
                 // The libc++ shellcode creates /dev/df as an O_EXCL mutex the
-                // first time it runs. While it exists the init hook cannot be
-                // installed again this boot, so retrying would only time out or
-                // report a false success (the upstream engine's own guard).
+                // first time it runs: a retry this boot cannot re-hook init.
                 if (hookedThisBoot()) {
                     _state.value = _state.value.copy(rebootRequired = true)
                     throw IllegalStateException(
@@ -102,31 +105,33 @@ class DirtyFragRepository(private val context: Context) {
                     )
                 }
 
+                // A run that dies half-way leaves the page-cache patch behind, so
+                // never let the next boot inherit a success from it.
+                markLastRun(false)
                 setPhase(DirtyFragInstallPhase.Exploiting, "[*] Running DirtyFrag (CVE-2026-43284)")
                 val code = runExploit(reporter)
                 if (code == 4) {
-                    // /dev/df appeared between the pre-check and the engine start
-                    // (e.g. a concurrent attempt); the retry needs a reboot.
                     _state.value = _state.value.copy(rebootRequired = true)
-                    throw IllegalStateException("init was already hooked on this boot; reboot the device before running DirtyFrag again")
+                    throw IllegalStateException(
+                        "init was already hooked on this boot; reboot the device before running DirtyFrag again",
+                    )
                 }
                 if (code != 0 && isAgnesSuActive()) {
-                    // The engine failed late, but the previous stage already
-                    // brought KernelSU up; do not report a failure then.
+                    markLastRun(true)
                     setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
                     return@launch
                 }
                 require(code == 0) { "DirtyFrag returned $code" }
 
                 // Exit code 0 only means ksud accepted the late-load request:
-                // ksud daemonizes immediately, so the module can still be
-                // loading (or fail later). Wait for the driver to answer before
-                // claiming success. On success ksud force-stops this app, so this
-                // poll usually dies with the process and the restarted app's
-                // init() is the authority; a surviving process that never sees
-                // the driver has genuinely failed.
-                appendLog("[*] late-load dispatched, waiting for AgnesSU...")
+                // ksud daemonizes, so the kernel module may still be loading (or
+                // fail later). Wait for the driver to answer. On success ksud
+                // force-stops this app, so the restarted app's init() is the
+                // authority; a surviving process that never sees the driver has
+                // genuinely failed.
+                setPhase(DirtyFragInstallPhase.Verifying, "[*] late-load dispatched, verifying...")
                 if (awaitAgnesSuActive()) {
+                    markLastRun(true)
                     _state.value = _state.value.copy(rebootRequired = false)
                     setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
                     appendLog("[*] Root complete")
@@ -143,9 +148,25 @@ class DirtyFragRepository(private val context: Context) {
                     _state.value = _state.value.copy(rebootRequired = true)
                 }
                 appendLog("[-] ${error.message ?: error.javaClass.simpleName}")
+                _state.value = _state.value.copy(
+                    failureReason = error.message ?: error.javaClass.simpleName,
+                )
+                markLastRun(false)
                 setPhase(DirtyFragInstallPhase.Failed, "[*] Root failed")
             }
         }
+    }
+
+    /** bootstrap.c reads soft_reboot from the DE prefs right before late-load. */
+    fun setSoftReboot(enabled: Boolean) {
+        dePrefs().edit().putBoolean(PREF_SOFT_REBOOT, enabled).apply()
+        _state.value = _state.value.copy(softReboot = enabled)
+    }
+
+    /** bootstrap.c marks every installed module disabled when this is set. */
+    fun setDisableModules(enabled: Boolean) {
+        dePrefs().edit().putBoolean(PREF_DISABLE_MODULES, enabled).apply()
+        _state.value = _state.value.copy(disableModules = enabled)
     }
 
     /**
@@ -154,22 +175,42 @@ class DirtyFragRepository(private val context: Context) {
      */
     fun refresh() {
         if (installJob?.isActive == true) return
-        scope.launch {
-            if (isAgnesSuActive()) {
-                _state.value = _state.value.copy(rebootRequired = false)
-                if (_state.value.phase != DirtyFragInstallPhase.Installed) {
-                    setPhase(DirtyFragInstallPhase.Installed, "[*] AgnesSU active")
-                }
-            } else {
-                val hooked = hookedThisBoot()
+        scope.launch { refreshLocked(initial = false) }
+    }
+
+    private fun refreshLocked(initial: Boolean) {
+        val active = isAgnesSuActive()
+        val hooked = !active && hookedThisBoot()
+        when {
+            active -> {
                 _state.value = _state.value.copy(
-                    rebootRequired = hooked,
-                    phase = if (_state.value.phase == DirtyFragInstallPhase.Installed) {
-                        DirtyFragInstallPhase.Ready
-                    } else {
-                        _state.value.phase
-                    },
+                    phase = DirtyFragInstallPhase.Installed,
+                    rebootRequired = false,
                 )
+                if (initial) appendLog("[*] AgnesSU already active, no need to run DirtyFrag")
+            }
+
+            hooked -> {
+                _state.value = _state.value.copy(
+                    phase = DirtyFragInstallPhase.Failed,
+                    rebootRequired = true,
+                )
+                if (initial) {
+                    appendLog("[!] init was already hooked on this boot; reboot required before running DirtyFrag")
+                }
+            }
+
+            else -> {
+                _state.value = _state.value.copy(rebootRequired = false)
+                if (initial) {
+                    _state.value = _state.value.copy(
+                        phase = if (lastRunFailed()) {
+                            DirtyFragInstallPhase.Failed
+                        } else {
+                            DirtyFragInstallPhase.Ready
+                        },
+                    )
+                }
             }
         }
     }
@@ -220,8 +261,8 @@ class DirtyFragRepository(private val context: Context) {
             val bin = File(context.applicationInfo.nativeLibraryDir, "libdfroot.so")
             require(bin.isFile) { "libdfroot.so missing from native library dir" }
             // Resolve the bootstrap path at runtime: a spoofed/renamed build runs
-            // under a randomized applicationId, so the ko must exec *this* package's
-            // staged bootstrap, not a hardcoded com.agnessu.yakayn path.
+            // under a randomized applicationId, so the ko must exec *this*
+            // package's staged bootstrap, not a hardcoded one.
             val bootstrapPath = File(deDataDir, "bootstrap").absolutePath
             return ExploitRunner.run(
                 bin = bin,
@@ -257,7 +298,7 @@ class DirtyFragRepository(private val context: Context) {
         return isAgnesSuActive()
     }
 
-    /** Same device banner DFRoot's ExploitRunner prints before attacking. */
+    /** Same device banner DirtyFragX prints before attacking. */
     private fun reportDeviceInfo(reporter: IReporter) {
         reporter.report("* app version: ${BuildConfig.VERSION_NAME}\n")
         reporter.report("* manufacturer: ${snapshot.manufacturer}\n")
@@ -269,47 +310,55 @@ class DirtyFragRepository(private val context: Context) {
 
     /**
      * bootstrap reads these from device-protected storage before it late-loads
-     * ksud. `disable_modules` stays false on a fresh root — there are no modules
-     * yet, and a missing /data/adb/modules would otherwise make bootstrap abort
-     * with /dev/dfme1 before launching the daemon.
+     * ksud. su_manager is this package (so ksud restarts *this* manager, never
+     * another one); the two booleans come from the options on the run screen.
      */
     private fun writePrefs() {
-        val prefs = context.createDeviceProtectedStorageContext()
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit()
+        dePrefs().edit()
             .putString(PREF_SU_MANAGER, context.packageName)
-            .putBoolean(PREF_SOFT_REBOOT, false)
-            .putBoolean(PREF_DISABLE_MODULES, false)
+            .putBoolean(PREF_SOFT_REBOOT, _state.value.softReboot)
+            .putBoolean(PREF_DISABLE_MODULES, _state.value.disableModules)
             .commit()
     }
 
     /**
-     * Copy AgnesSU's bundled ksud (libksud.so) to `<deDataDir>/ksud` — the path
-     * bootstrap late-loads (derived from /proc/self/exe at runtime).
+     * Copy AgnesSU's bundled ksud (libksud.so) to <deDataDir>/ksud — the path
+     * bootstrap late-loads (derived from /proc/self/exe at runtime). DirtyFragX
+     * can fall back to the largest .so in the manager's lib dir when a fork
+     * renames libksud.so, so mirror that heuristic instead of hard failing.
      */
     private fun stageKsud(reporter: IReporter) {
-        stageNative(context.applicationInfo.nativeLibraryDir, "libksud.so", "ksud", reporter)
+        val ksud = resolveKsudLib(context.applicationInfo.nativeLibraryDir)
+            ?: error("ksud library not found in native library dir")
+        stageFile(ksud, "ksud", reporter)
     }
 
     /**
-     * Copy the DFRoot post-root stage (libbootstrap.so) to `<deDataDir>/bootstrap`
-     * — the path the ko executes. --bootstrap-path patches it into the shellcode
-     * as the ko's `bootstrap=` module parameter, so the LKM execs this package's
-     * copy even on spoofed builds. This stage is what sets partitions read-only
-     * before ksud starts; skipping it is the Samsung reboot regression.
+     * Copy the DirtyFrag post-root stage (libbootstrap.so) to
+     * <deDataDir>/bootstrap — the path the ko executes. --bootstrap-path patches
+     * it into the shellcode as the ko's "bootstrap=" module parameter, so the
+     * LKM execs this package's copy even on spoofed builds.
      */
     private fun stageBootstrap(reporter: IReporter) {
-        stageNative(context.applicationInfo.nativeLibraryDir, "libbootstrap.so", "bootstrap", reporter)
+        stageFile(
+            File(context.applicationInfo.nativeLibraryDir, "libbootstrap.so"),
+            "bootstrap",
+            reporter,
+        )
     }
 
-    private fun stageNative(
-        nativeLibDir: String,
-        srcName: String,
-        destName: String,
-        reporter: IReporter,
-    ) {
-        val src = File(nativeLibDir, srcName)
-        require(src.isFile) { "$srcName missing from native library dir" }
+    private fun resolveKsudLib(nativeLibDir: String): File? {
+        if (nativeLibDir.isBlank()) return null
+        val dir = File(nativeLibDir)
+        val direct = File(dir, "libksud.so")
+        if (direct.isFile) return direct
+        return dir.listFiles { file -> file.name.endsWith(".so") }
+            ?.filter { file -> file.name !in KSUD_SKIP && file.length() >= MIN_KSUD_SIZE }
+            ?.maxByOrNull { file -> file.length() }
+    }
+
+    private fun stageFile(src: File, destName: String, reporter: IReporter) {
+        require(src.isFile) { "${src.name} missing from native library dir" }
         val target = File(deDataDir, destName)
         if (target.isFile && target.length() == src.length()) {
             reporter.report("[*] $destName already staged")
@@ -330,16 +379,53 @@ class DirtyFragRepository(private val context: Context) {
     private fun appendLog(line: String) {
         val cleanLine = stripAnsi(line).trim()
         if (cleanLine.isBlank()) return
-        _state.value = _state.value.copy(
-            log = (_state.value.log + "\n" + cleanLine).trim(),
-        )
+        _state.value = _state.value.copy(log = (_state.value.log + "\n" + cleanLine).trim())
+        persistLog()
     }
+
+    /** Shows the log of the previous run, unless it belongs to an older boot. */
+    private fun replayLastLog() {
+        if (!lastLogFile.isFile) return
+        if (dePrefs().getInt(PREF_LOG_BOOT, -1) != bootCount()) {
+            lastLogFile.delete()
+            return
+        }
+        val text = runCatching { lastLogFile.readText() }.getOrDefault("")
+        if (text.isBlank()) return
+        // Keep the kernel banner in front of the replayed log.
+        _state.value = _state.value.copy(log = (_state.value.log + "\n" + text.trim()).trim())
+    }
+
+    private fun persistLog() {
+        runCatching {
+            lastLogFile.writeText(_state.value.log)
+            dePrefs().edit().putInt(PREF_LOG_BOOT, bootCount()).apply()
+        }
+    }
+
+    private fun markLastRun(success: Boolean) {
+        dePrefs().edit().putBoolean(PREF_LAST_SUCCESS, success).apply()
+    }
+
+    private fun lastRunFailed(): Boolean =
+        lastLogFile.isFile && !dePrefs().getBoolean(PREF_LAST_SUCCESS, true)
+
+    private fun dePrefs() = deContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun bootCount(): Int = runCatching {
+        Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
+    }.getOrDefault(-1)
 
     companion object {
         private const val PREFS_NAME = "dirtyfrag"
         private const val PREF_SU_MANAGER = "su_manager"
         private const val PREF_SOFT_REBOOT = "soft_reboot"
         private const val PREF_DISABLE_MODULES = "disable_modules"
+        private const val PREF_LAST_SUCCESS = "last_run_success"
+        private const val PREF_LOG_BOOT = "log_boot_count"
+        private const val LOG_FILE = "last_run.log"
+        private const val MIN_KSUD_SIZE = 512L * 1024L
+        private val KSUD_SKIP = setOf("libadbroot.so", "libkernelsu.so", "libkptools.so")
         private val ANSI_ESCAPE = Regex("\u001B\\[[0-?]*[ -/]*[@-~]")
 
         private fun stripAnsi(value: String): String =

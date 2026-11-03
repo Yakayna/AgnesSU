@@ -27,9 +27,8 @@ ko_target:
     .global libcxx_ko_target_off
 libcxx_ko_target_off:
     .int ko_target - libcxx_data
-/* AgnesSU: the ko is loaded with this single module parameter, so the LKM
- * execs *this* package's staged bootstrap instead of a hardcoded df.root path.
- * exp.c rewrites the value at runtime from --bootstrap-path. */
+/* AgnesSU: single insmod module parameter carrying the staged bootstrap path,
+ * so spoofed builds resolve their own package's bootstrap. exp.c rewrites it. */
 bootstrap_opt:
     .ascii "bootstrap=/data/user_de/0/com.agnessu.yakayn/bootstrap\0"
 bootstrap_opt_end:
@@ -123,7 +122,7 @@ libcxx_start:
     svc     0
 
     // execve("/vendor/bin/insmod", [exe_path, ko_target, bootstrap_opt, NULL], NULL)
-    // toybox insmod joins the remaining args into the module-parameter string,
+    // toybox insmod joins the trailing args into the module-parameter string,
     // so "bootstrap=<path>" reaches dfroot's module_param().
     adr     x1, exe_path
     str     x1, [sp]

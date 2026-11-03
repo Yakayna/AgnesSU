@@ -29,9 +29,10 @@ data class DirtyFragDeviceSnapshot(
     val isAarch64: Boolean
         get() = machine == "aarch64"
 
-    /** IpSecManager UDP encapsulation (the ESP primitive) needs API 29+. */
+    /** The ESP primitive needs API 29+, but the bundled dfroot blobs cover
+     *  Android 12-17 only, so do not pretend older releases are supported. */
     val isApiSupported: Boolean
-        get() = sdk >= Build.VERSION_CODES.Q
+        get() = sdk >= Build.VERSION_CODES.S
 
     companion object {
         fun current(): DirtyFragDeviceSnapshot {
@@ -53,6 +54,7 @@ enum class DirtyFragInstallPhase {
     Checking,
     Ready,
     Exploiting,
+    Verifying,
     Installed,
     Failed,
 }
@@ -63,11 +65,20 @@ data class DirtyFragUiState(
     /** The shellcode's /dev/df mutex already exists, so init was hooked on an
      *  earlier run this boot and DirtyFrag cannot run again until reboot. */
     val rebootRequired: Boolean = false,
+    /** bootstrap.c reads this from the device-protected prefs before it
+     *  late-loads ksud: reboot through KernelSU instead of the bootloader. */
+    val softReboot: Boolean = false,
+    /** Mark every installed module disabled before late-loading ksud. This is
+     *  the escape hatch when a module keeps crashing the root run. */
+    val disableModules: Boolean = false,
+    /** One-line reason shown under the status card when a run fails. */
+    val failureReason: String? = null,
 ) {
     val busy: Boolean
         get() = phase in setOf(
             DirtyFragInstallPhase.Checking,
             DirtyFragInstallPhase.Exploiting,
+            DirtyFragInstallPhase.Verifying,
         )
 }
 

@@ -1,4 +1,5 @@
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,10 +13,10 @@
 #define KSUD       "/data/adb/ksud"
 #define MODULES_DIR "/data/adb/modules"
 
-/* AgnesSU: the ko execs us as <de>/<package>/bootstrap (path passed to insmod as
- * the "bootstrap=" module parameter), so derive ksud and the prefs file from
- * /proc/self/exe. That keeps spoofed/renamed builds working without a
- * hardcoded package name. */
+/* AgnesSU: the ko execs us as <de>/<package>/bootstrap (the path is passed to
+ * insmod as the "bootstrap=" module parameter), so derive ksud and the prefs
+ * file from /proc/self/exe. That keeps spoofed/renamed builds working without
+ * hardcoding a package name. */
 static char g_ksud[256];
 static char g_prefs[256];
 
@@ -198,8 +199,11 @@ static void touch(const char *path)
 static int disable_modules(void)
 {
     DIR *dir = opendir(MODULES_DIR);
-    if (!dir)
-        return -1;
+    if (!dir) {
+        /* A fresh device has no module directory yet: there is nothing to
+         * disable, and failing here would abort the run before ksud starts. */
+        return errno == ENOENT ? 0 : -1;
+    }
 
     struct dirent *ent;
     while ((ent = readdir(dir))) {
@@ -240,16 +244,33 @@ int main(void)
         }
     }
 
-    touch("/dev/dfm5");    
-    if (run_ctx(NULL, (char *[]){ g_ksud, "late-load", "--package-name", su_manager, NULL }) == 0) {
-        touch("/dev/dfm6");
-        if (soft_reboot) {
-            while (late_load_running()) sleep(1);
-            run_ctx("u:r:ksu:s0", (char *[]){ KSUD, "soft-reboot", NULL });
+    touch("/dev/dfm5");
+    // ksu only allows init to switch to ksud context and we are in kernel context now
+    // once ksu starts, selinux is enforcing, but here its still permissive
+    // switch our context while we still can
+    pid_t pid = fork();
+    if (pid < 0)
+        return 1;
+    if (pid == 0) {
+        int fd = open("/proc/self/attr/current", O_WRONLY);
+        if (fd >= 0) {
+            const char *ctx = "u:r:init:s0";
+            write(fd, ctx, strlen(ctx));
+            close(fd);
         }
-    } else {
-        touch("/dev/dfme2");
+        if (run_ctx(NULL, (char *[]){ g_ksud, "late-load", "--package-name", su_manager, NULL }) == 0) {
+            touch("/dev/dfm6");
+            if (soft_reboot) {
+                while (late_load_running()) sleep(1);
+                run_ctx("u:r:ksu:s0", (char *[]){ KSUD, "soft-reboot", NULL });
+            }
+        } else {
+            touch("/dev/dfme2");
+        }
+        _exit(0);
     }
-        
+    int status;
+    waitpid(pid, &status, 0);
+
     return 0;
 }
