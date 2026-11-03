@@ -63,6 +63,9 @@ fun DirtyFragScreen() {
     val clipboard = LocalClipboardManager.current
 
     val state by repository.state.collectAsState()
+    // Delegated properties cannot be smart-cast; keep one plain local for the
+    // nullable failure line.
+    val failureReason = state.failureReason
     val snapshot = remember { repository.snapshot }
 
     // late-load restarts the app; re-check whenever this page is shown again.
@@ -167,9 +170,9 @@ fun DirtyFragScreen() {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (state.failureReason != null && !state.busy) {
+                    if (failureReason != null && !state.busy) {
                         Text(
-                            text = state.failureReason,
+                            text = failureReason,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
