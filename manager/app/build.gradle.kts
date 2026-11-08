@@ -99,9 +99,11 @@ android {
             useLegacyPackaging = true
         }
         resources {
-            // https://stackoverflow.com/a/58956288
-            // It will break Layout Inspector, but it's unused for release build.
-            excludes += "META-INF/*.version"
+            if (isReleaseTask) {
+                // https://stackoverflow.com/a/58956288
+                // It will break Layout Inspector, but it's unused for release build.
+                excludes += "META-INF/*.version"
+            }
             // https://github.com/Kotlin/kotlinx.coroutines?tab=readme-ov-file#avoiding-including-the-debug-infrastructure-in-the-resulting-apk
             excludes += "DebugProbesKt.bin"
             // https://issueantenna.com/repo/kotlin/kotlinx.coroutines/issues/3158
@@ -337,12 +339,14 @@ dependencies {
     implementation(libs.ucrop)
 
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.me.zhanghai.android.appiconloader)
     implementation(libs.me.zhanghai.android.appiconloader.coil)
     implementation(libs.org.lsposed.hiddenapibypass)
 
     implementation(libs.markdown)
+    implementation(libs.markwon.tables)
     implementation(libs.androidx.webkit)
 
     implementation(libs.lsposed.cxx)

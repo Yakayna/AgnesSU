@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.system.Os
 import android.widget.Toast
+import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.expandVertically
@@ -149,10 +150,14 @@ fun HomePage(
         }
     }
 
-    if (!uiState.isInitialDataLoaded) return
+    ReportDrawnWhen { uiState.isInitialDataLoaded }
 
-    val topAppBarState = rememberTopAppBarState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
+        rememberTopAppBarState(
+            initialHeightOffset = -154f,
+            initialHeightOffsetLimit = -154f, // from debugger
+        ),
+    )
     val scrollState = rememberScrollState()
     val navigator = LocalNavigator.current
     val loadingDialog = rememberLoadingDialog()

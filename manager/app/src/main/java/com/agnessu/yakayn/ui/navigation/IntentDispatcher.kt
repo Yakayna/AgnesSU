@@ -20,6 +20,7 @@ import com.agnessu.yakayn.Natives
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.data.download.DownloadService
 import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
+import com.agnessu.yakayn.domain.usecase.PeekOneshotScriptUseCase
 import com.agnessu.yakayn.ui.component.InstallConfirmationDialog
 import com.agnessu.yakayn.ui.component.ZipFileDetector
 import com.agnessu.yakayn.ui.component.ZipFileInfo
@@ -181,6 +182,7 @@ fun IntentDispatcher(intentChannel: ReceiveChannel<Intent>) {
     var pendingZipFiles by remember { mutableStateOf<List<ZipFileInfo>>(emptyList()) }
     val settings: SettingsPlatformRepository = koinInject()
     val zipFileDetector: ZipFileDetector = koinInject()
+    val peekScript = koinInject<PeekOneshotScriptUseCase>()
 
     InstallConfirmationDialog(
         show = pendingZipFiles.isNotEmpty(),
@@ -206,6 +208,12 @@ fun IntentDispatcher(intentChannel: ReceiveChannel<Intent>) {
 
         when (action) {
             is PendingAction.InstallModules -> {
+                val single = action.zipFileInfos.singleOrNull()
+                val manifest = single?.let { peekScript(it.uri.toString()) }
+                if (single != null && manifest != null) {
+                    navigator.push(Route.ScriptRun(single.uri.toString(), offerInstall = true, displayName = manifest.name))
+                    return@CollectIntentChannel
+                }
                 if (action.requiresConfirmation) {
                     pendingZipFiles = action.zipFileInfos
                 } else {

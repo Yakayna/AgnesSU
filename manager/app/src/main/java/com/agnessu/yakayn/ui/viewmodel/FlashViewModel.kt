@@ -1,5 +1,6 @@
 package com.agnessu.yakayn.ui.viewmodel
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.model.FlashOperation
 import com.agnessu.yakayn.domain.model.FlashOperationUpdate
 import com.agnessu.yakayn.domain.usecase.CheckFlashModuleMountUseCase
@@ -18,7 +20,23 @@ import com.agnessu.yakayn.domain.usecase.ExecuteFlashOperationUseCase
 import com.agnessu.yakayn.domain.usecase.IsSoftRebootPreferredUseCase
 import com.agnessu.yakayn.domain.usecase.RebootUseCase
 
-enum class FlashingStatus { FLASHING, SUCCESS, FAILED }
+enum class FlashingStatus(@param:StringRes val resId: Int) {
+    FLASHING(R.string.flashing),
+    SUCCESS(R.string.flash_success),
+    FAILED(R.string.flash_failed),
+}
+
+/** State consumed by the common flash output screen. */
+data class FlashState(
+    val status: FlashingStatus = FlashingStatus.FLASHING,
+    val output: String = "",
+    val showReboot: Boolean = false,
+    /**
+     * Title used instead of [FlashingStatus.resId] once the operation succeeded, so each flow can
+     * report "module flashed" / "kernel flashed" / "patch completed" instead of generic success.
+     */
+    @param:StringRes val successTitleRes: Int? = null,
+)
 
 data class ModuleInstallStatus(
     val totalModules: Int = 0,

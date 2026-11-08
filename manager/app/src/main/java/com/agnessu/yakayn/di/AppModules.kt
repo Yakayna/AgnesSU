@@ -1,38 +1,31 @@
-package com.agnessu.yakayn.di
+﻿package com.agnessu.yakayn.di
 
 import coil.ImageLoader
-import java.io.File
-import java.util.Locale
-import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import me.zhanghai.android.appiconloader.coil.AppIconFetcher
-import me.zhanghai.android.appiconloader.coil.AppIconKeyer
-import okhttp3.Cache
-import okhttp3.OkHttpClient
 import com.agnessu.yakayn.BuildConfig
 import com.agnessu.yakayn.data.AppSettingsRepository
 import com.agnessu.yakayn.data.application.ApplicationControlRepository
 import com.agnessu.yakayn.data.application.DynamicManagerRepository
 import com.agnessu.yakayn.data.count.CountRepository
+import com.agnessu.yakayn.data.dirtyfrag.DirtyFragRepository
 import com.agnessu.yakayn.data.download.DownloadRepository
 import com.agnessu.yakayn.data.file.ModuleFileRepository
 import com.agnessu.yakayn.data.flash.FlashRepository
-import com.agnessu.yakayn.data.dirtyfrag.DirtyFragRepository
 import com.agnessu.yakayn.data.ghostlock.AndroidGhostlockRepository
 import com.agnessu.yakayn.data.ghostlock.AssetConfigLoader
 import com.agnessu.yakayn.data.ghostlock.BuiltinProfileCatalog
 import com.agnessu.yakayn.data.ghostlock.UserProfileStore
-import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.kernel.KernelRepository
 import com.agnessu.yakayn.data.kernel.UmountRepository
 import com.agnessu.yakayn.data.logging.BugreportRepository
 import com.agnessu.yakayn.data.logging.SulogRepository
 import com.agnessu.yakayn.data.module.ModuleActionRepository
 import com.agnessu.yakayn.data.module.ModuleCatalogRepository
+import com.agnessu.yakayn.data.module.ModuleIconRepository
 import com.agnessu.yakayn.data.module.ModulePreferencesRepository
+import com.agnessu.yakayn.data.module.ModuleReleaseRepository
 import com.agnessu.yakayn.data.module.ModuleRepository
+import com.agnessu.yakayn.data.module.RepositorySourceStore
+import com.agnessu.yakayn.data.module.registry.KernelSuRegistryRepository
 import com.agnessu.yakayn.data.network.NetworkRequestRepository
 import com.agnessu.yakayn.data.network.NetworkStatusRepository
 import com.agnessu.yakayn.data.network.WebResourceRepository
@@ -43,11 +36,13 @@ import com.agnessu.yakayn.data.packageinfo.RootServiceRepository
 import com.agnessu.yakayn.data.packageinfo.SuperUserRepository
 import com.agnessu.yakayn.data.profile.ProfileRepository
 import com.agnessu.yakayn.data.profile.ProfileTemplateRepository
+import com.agnessu.yakayn.data.script.ScriptRepository
 import com.agnessu.yakayn.data.settings.LocaleHelper
 import com.agnessu.yakayn.data.settings.LocaleRepository
 import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
 import com.agnessu.yakayn.data.shell.KsuCliRepository
 import com.agnessu.yakayn.data.shell.ShortcutRepository
+import com.agnessu.yakayn.data.shizuku.ShizukuExploitRunner
 import com.agnessu.yakayn.data.startup.ApplicationInitializationRepository
 import com.agnessu.yakayn.data.startup.StartupRepository
 import com.agnessu.yakayn.data.susfs.SuSFSConfigHelper
@@ -60,6 +55,7 @@ import com.agnessu.yakayn.data.theme.ThemeRepository
 import com.agnessu.yakayn.data.update.ManagerUpdateRepository
 import com.agnessu.yakayn.data.webui.WebUiRepository
 import com.agnessu.yakayn.domain.text.TextTransliterator
+import com.agnessu.yakayn.domain.usecase.AddModuleRepositoryUseCase
 import com.agnessu.yakayn.domain.usecase.AddUmountPathUseCase
 import com.agnessu.yakayn.domain.usecase.ApplyLanguageUseCase
 import com.agnessu.yakayn.domain.usecase.BackupAllowlistUseCase
@@ -91,7 +87,11 @@ import com.agnessu.yakayn.domain.usecase.GetHomeBasicInfoUseCase
 import com.agnessu.yakayn.domain.usecase.GetInstallEnvironmentUseCase
 import com.agnessu.yakayn.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.agnessu.yakayn.domain.usecase.GetKernelStatusUseCase
+import com.agnessu.yakayn.domain.usecase.GetLastScriptRunUseCase
 import com.agnessu.yakayn.domain.usecase.GetManagerRuntimeInfoUseCase
+import com.agnessu.yakayn.domain.usecase.GetModuleReadmeUseCase
+import com.agnessu.yakayn.domain.usecase.GetModuleReleaseDetailsUseCase
+import com.agnessu.yakayn.domain.usecase.GetModuleUpdateChangelogUseCase
 import com.agnessu.yakayn.domain.usecase.GetPlatformFeatureStatusUseCase
 import com.agnessu.yakayn.domain.usecase.GetProfileTemplateUseCase
 import com.agnessu.yakayn.domain.usecase.GetStringPreferenceUseCase
@@ -101,27 +101,32 @@ import com.agnessu.yakayn.domain.usecase.GetSuperUserAppGroupUseCase
 import com.agnessu.yakayn.domain.usecase.ImportAllowlistUseCase
 import com.agnessu.yakayn.domain.usecase.ImportProfileTemplatesUseCase
 import com.agnessu.yakayn.domain.usecase.InitializeApplicationUseCase
+import com.agnessu.yakayn.domain.usecase.IsCatalogModuleCurrentUseCase
 import com.agnessu.yakayn.domain.usecase.IsLateLoadModeUseCase
 import com.agnessu.yakayn.domain.usecase.IsModuleUriAccessibleUseCase
 import com.agnessu.yakayn.domain.usecase.IsNetworkAvailableUseCase
 import com.agnessu.yakayn.domain.usecase.IsSoftRebootPreferredUseCase
 import com.agnessu.yakayn.domain.usecase.IsSystemLanguageSettingsUseCase
 import com.agnessu.yakayn.domain.usecase.LaunchSystemLanguageSettingsUseCase
+import com.agnessu.yakayn.domain.usecase.LoadModuleIconUseCase
 import com.agnessu.yakayn.domain.usecase.LoadSettingsPlatformUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveAssetDownloadUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveCatalogModulesUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveDownloadUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveDynamicManagerStateUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveInstalledModulesUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveKernelFlashUseCase
-import com.agnessu.yakayn.domain.usecase.ObserveModuleCatalogOfflineUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveModuleCatalogRefreshingUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateOfflineUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplateRefreshingUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveProfileTemplatesUseCase
+import com.agnessu.yakayn.domain.usecase.ObserveRepositorySourcesUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveStartupStateUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveSulogStateUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveSuperUserStateUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveUmountStateUseCase
+import com.agnessu.yakayn.domain.usecase.PeekOneshotScriptUseCase
+import com.agnessu.yakayn.domain.usecase.PrepareScriptUseCase
 import com.agnessu.yakayn.domain.usecase.RebootUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshDynamicManagerUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshInstalledModulesUseCase
@@ -130,8 +135,13 @@ import com.agnessu.yakayn.domain.usecase.RefreshProfileTemplatesUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshSulogUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshSuperUsersUseCase
 import com.agnessu.yakayn.domain.usecase.RefreshUmountPathsUseCase
+import com.agnessu.yakayn.domain.usecase.ReleaseScriptUseCase
+import com.agnessu.yakayn.domain.usecase.RemoveModuleRepositoryUseCase
 import com.agnessu.yakayn.domain.usecase.RemovePreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.RemoveUmountPathUseCase
+import com.agnessu.yakayn.domain.usecase.RenameModuleRepositoryUseCase
+import com.agnessu.yakayn.domain.usecase.ResolveModuleUpdateUseCase
+import com.agnessu.yakayn.domain.usecase.RunScriptUseCase
 import com.agnessu.yakayn.domain.usecase.SaveModuleActionLogUseCase
 import com.agnessu.yakayn.domain.usecase.SaveProfileTemplateUseCase
 import com.agnessu.yakayn.domain.usecase.SelectDynamicManagerUseCase
@@ -144,6 +154,7 @@ import com.agnessu.yakayn.domain.usecase.SetManualDynamicManagerUseCase
 import com.agnessu.yakayn.domain.usecase.SetModuleEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetModuleRemovedUseCase
 import com.agnessu.yakayn.domain.usecase.SetSelinuxHideEnabledUseCase
+import com.agnessu.yakayn.domain.usecase.SetShellSuAdbOnlyEnabledUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringSetPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.SetSuEnabledUseCase
@@ -172,6 +183,8 @@ import com.agnessu.yakayn.ui.viewmodel.MainIntentViewModel
 import com.agnessu.yakayn.ui.viewmodel.ModuleDetailViewModel
 import com.agnessu.yakayn.ui.viewmodel.ModuleRepoViewModel
 import com.agnessu.yakayn.ui.viewmodel.ModuleViewModel
+import com.agnessu.yakayn.ui.viewmodel.RepositorySourcesViewModel
+import com.agnessu.yakayn.ui.viewmodel.ScriptRunViewModel
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
 import com.agnessu.yakayn.ui.viewmodel.SuSFSViewModel
 import com.agnessu.yakayn.ui.viewmodel.SulogViewModel
@@ -180,6 +193,16 @@ import com.agnessu.yakayn.ui.viewmodel.TemplateEditorViewModel
 import com.agnessu.yakayn.ui.viewmodel.TemplateViewModel
 import com.agnessu.yakayn.ui.viewmodel.UmountManagerScreenViewModel
 import com.agnessu.yakayn.ui.webui.MonetColorsProvider
+import java.io.File
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import me.zhanghai.android.appiconloader.coil.AppIconFetcher
+import me.zhanghai.android.appiconloader.coil.AppIconKeyer
+import okhttp3.Cache
+import okhttp3.OkHttpClient
 import org.koin.android.ext.koin.androidApplication
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
@@ -253,7 +276,6 @@ val repositoryModule = module {
             applicationScope = get(applicationScopeQualifier),
             flashRepository = get(),
             ksuCliRepository = get(),
-            monetCompatColorSource = get(),
         )
     }
     singleOf(::ManagerUpdateRepository)
@@ -265,6 +287,8 @@ val repositoryModule = module {
     singleOf(::HomeStateRepository)
     singleOf(::NetworkStatusRepository)
     singleOf(::NetworkRequestRepository)
+    // AgnesSU custom root methods (GhostLock / DirtyFrag); they stage this app's
+    // own ksud and never touch another manager.
     single { ShizukuExploitRunner(androidApplication()) }
     single { AssetConfigLoader(androidApplication()) }
     single { BuiltinProfileCatalog(get()) }
@@ -284,9 +308,14 @@ val repositoryModule = module {
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
+    single { ModuleReleaseRepository(get(), get(applicationScopeQualifier)) }
+    singleOf(::ModuleIconRepository)
+    single { KernelSuRegistryRepository(get(), get(), get(), get()) }
+    singleOf(::RepositorySourceStore)
     singleOf(::ModuleRepository)
     singleOf(::ModulePreferencesRepository)
     singleOf(::ModuleActionRepository)
+    single { ScriptRepository(androidApplication(), get(), get(applicationScopeQualifier)) }
     singleOf(::WebResourceRepository)
     singleOf(::WebUiRepository)
     singleOf(::ModuleFileRepository)
@@ -328,6 +357,7 @@ val useCaseModule = module {
     factoryOf(::EnqueueDownloadUseCase)
     factoryOf(::EnqueueManagerUpdateUseCase)
     factoryOf(::ObserveDownloadUseCase)
+    factoryOf(::ObserveAssetDownloadUseCase)
     factoryOf(::GetKernelStatusUseCase)
     factoryOf(::GetInstallEnvironmentUseCase)
     factoryOf(::ExecuteFlashOperationUseCase)
@@ -336,6 +366,7 @@ val useCaseModule = module {
     factoryOf(::GetKernelFeatureSettingsUseCase)
     factoryOf(::SetSuEnabledUseCase)
     factoryOf(::SetKernelUmountEnabledUseCase)
+    factoryOf(::SetShellSuAdbOnlyEnabledUseCase)
     factoryOf(::ConfigureSuLogUseCase)
     factoryOf(::SetSelinuxHideEnabledUseCase)
     factoryOf(::SetDefaultUmountModulesUseCase)
@@ -357,9 +388,18 @@ val useCaseModule = module {
     factoryOf(::GetSuperUserAppGroupUseCase)
     factoryOf(::ObserveCatalogModulesUseCase)
     factoryOf(::ObserveModuleCatalogRefreshingUseCase)
-    factoryOf(::ObserveModuleCatalogOfflineUseCase)
     factoryOf(::RefreshModuleCatalogUseCase)
     factoryOf(::GetCatalogModuleUseCase)
+    factoryOf(::IsCatalogModuleCurrentUseCase)
+    factoryOf(::GetModuleReadmeUseCase)
+    factoryOf(::GetModuleReleaseDetailsUseCase)
+    factoryOf(::LoadModuleIconUseCase)
+    factoryOf(::ResolveModuleUpdateUseCase)
+    factoryOf(::GetModuleUpdateChangelogUseCase)
+    factoryOf(::ObserveRepositorySourcesUseCase)
+    factoryOf(::AddModuleRepositoryUseCase)
+    factoryOf(::RenameModuleRepositoryUseCase)
+    factoryOf(::RemoveModuleRepositoryUseCase)
     factoryOf(::ObserveProfileTemplatesUseCase)
     factoryOf(::ObserveProfileTemplateRefreshingUseCase)
     factoryOf(::ObserveProfileTemplateOfflineUseCase)
@@ -405,6 +445,11 @@ val useCaseModule = module {
     factoryOf(::CalculateInstalledModuleSizeUseCase)
     factoryOf(::UpdateCachedModuleEnabledUseCase)
     factoryOf(::ExecuteModuleActionUseCase)
+    factoryOf(::PeekOneshotScriptUseCase)
+    factoryOf(::PrepareScriptUseCase)
+    factoryOf(::ReleaseScriptUseCase)
+    factoryOf(::RunScriptUseCase)
+    factoryOf(::GetLastScriptRunUseCase)
     factoryOf(::SaveModuleActionLogUseCase)
     factoryOf(::SetModuleEnabledUseCase)
     factoryOf(::SetModuleRemovedUseCase)
@@ -412,6 +457,7 @@ val useCaseModule = module {
 }
 
 val viewModelModule = module {
+    viewModel { parameters -> ScriptRunViewModel(parameters[0], get(), get(), get(), get(), get()) }
     viewModel { parameters ->
         AppProfileViewModel(
             uid = parameters[0],
@@ -434,8 +480,9 @@ val viewModelModule = module {
     viewModelOf(::ModuleViewModel)
     viewModelOf(::SuperUserViewModel)
     viewModelOf(::SuSFSViewModel)
-    viewModelOf(::ModuleRepoViewModel)
-    viewModel { parameters -> ModuleDetailViewModel(parameters[0], get()) }
+    viewModel { parameters -> ModuleRepoViewModel(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), parameters.getOrNull<String>()) }
+    viewModel { parameters -> ModuleDetailViewModel(parameters[0], parameters[1], get(), get(), get(), get(), get(), get(), get()) }
+    viewModelOf(::RepositorySourcesViewModel)
     viewModelOf(::TemplateViewModel)
     viewModel { parameters ->
         TemplateEditorViewModel(

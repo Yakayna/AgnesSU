@@ -1,8 +1,10 @@
-package com.agnessu.yakayn.ui
+﻿package com.agnessu.yakayn.ui
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,6 +36,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -43,23 +49,19 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import com.agnessu.yakayn.ui.screen.GhostlockScreen
-import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
-import kotlin.coroutines.resume
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import com.agnessu.yakayn.R
+import com.agnessu.yakayn.domain.model.CatalogModule
+import com.agnessu.yakayn.domain.model.ModuleReleaseAsset
+import com.agnessu.yakayn.domain.usecase.ExtractModuleIdUseCase
 import com.agnessu.yakayn.ui.activity.PermissionRequestInterface
 import com.agnessu.yakayn.ui.animation.predictiveback.installerNavTransition
+import com.agnessu.yakayn.ui.component.LocalRepositoryModuleInstall
 import com.agnessu.yakayn.ui.navigation.IntentDispatcher
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Navigator
@@ -68,12 +70,15 @@ import com.agnessu.yakayn.ui.overscroll.StretchOverscrollCompensationState
 import com.agnessu.yakayn.ui.overscroll.rememberCustomOverscrollFactory
 import com.agnessu.yakayn.ui.screen.AppProfileScreen
 import com.agnessu.yakayn.ui.screen.AppProfileTemplateScreen
-import com.agnessu.yakayn.ui.screen.DynamicManagerScreen
 import com.agnessu.yakayn.ui.screen.DirtyFragScreen
+import com.agnessu.yakayn.ui.screen.DynamicManagerScreen
 import com.agnessu.yakayn.ui.screen.ExecuteModuleActionScreen
 import com.agnessu.yakayn.ui.screen.FlashIt
 import com.agnessu.yakayn.ui.screen.FlashScreen
+import com.agnessu.yakayn.ui.screen.GhostlockScreen
+import com.agnessu.yakayn.ui.screen.InstallLibtgpaScreen
 import com.agnessu.yakayn.ui.screen.InstallScreen
+import com.agnessu.yakayn.ui.screen.ScriptRunScreen
 import com.agnessu.yakayn.ui.screen.SulogScreen
 import com.agnessu.yakayn.ui.screen.TemplateEditorScreen
 import com.agnessu.yakayn.ui.screen.UmountManagerScreen
@@ -81,6 +86,7 @@ import com.agnessu.yakayn.ui.screen.about.AboutScreen
 import com.agnessu.yakayn.ui.screen.about.OpenSourceLicenseScreen
 import com.agnessu.yakayn.ui.screen.kernelFlash.KernelFlashScreen
 import com.agnessu.yakayn.ui.screen.main.MainScreen
+import com.agnessu.yakayn.ui.screen.moduleRepo.AddRepositoryScreen
 import com.agnessu.yakayn.ui.screen.moduleRepo.ModuleRepoScreen
 import com.agnessu.yakayn.ui.screen.moduleRepo.OnlineModuleDetailScreen
 import com.agnessu.yakayn.ui.screen.susfs.SuSFSConfigScreen
@@ -97,9 +103,18 @@ import com.agnessu.yakayn.ui.util.LocalStretchOverscrollCompensationState
 import com.agnessu.yakayn.ui.util.rememberDeviceCornerRadius
 import com.agnessu.yakayn.ui.viewmodel.PredictiveBackAnimation
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
+import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.nav.core.LocalNavTransitionScope
 import top.yukonga.miuix.kmp.nav.core.NavCornerClipMode
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
@@ -114,6 +129,7 @@ fun NavContainer(
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val backgroundRenderState = LocalBackgroundRenderState.current
+    val extractModuleId = koinInject<ExtractModuleIdUseCase>()
     val activity = LocalActivity.current as MainActivity
     val context = LocalContext.current
 
@@ -137,6 +153,22 @@ fun NavContainer(
 
     val backStack = rememberNavBackStack<Route>(Route.Main)
     val navigator = remember(backStack) { Navigator(backStack) }
+    val installRepositoryModule: (Uri, CatalogModule, ModuleReleaseAsset, () -> Boolean) -> Unit = { uri, module, asset, canInstall ->
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            if (!canInstall()) return@launch
+            val moduleId = if (module.isScript) module.moduleId else runCatching { extractModuleId(uri.toString()) }.getOrNull()
+            withContext(Dispatchers.Main) {
+                if (!canInstall()) return@withContext
+                if (module.isScript && asset.expected != null) {
+                    navigator.push(Route.ScriptRun(uri.toString(), module.moduleId, asset.expected.size, asset.expected.sha256, displayName = module.moduleName))
+                } else if (!moduleId.isNullOrBlank() && !module.isScript) {
+                    navigator.push(Route.Flash.modules(listOf(uri.toString())))
+                } else {
+                    Toast.makeText(context, R.string.repo_error_module_archive, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     val onBack = remember(navigator) {
         {
             when (val top = navigator.current()) {
@@ -177,7 +209,7 @@ fun NavContainer(
                         suspendCancellableCoroutine { continuation ->
                             currentCallback = { result ->
                                 callback(result.any { it.value })
-                                continuation.resume(Unit)
+                                continuation.resume(Unit) { _, _, _ -> }
                             }
 
                             if (requestDescription.isNotBlank() && ActivityCompat.shouldShowRequestPermissionRationale(
@@ -220,7 +252,7 @@ fun NavContainer(
                                     result[perm] ?: true
                                 }
                                 callback(finalResult)
-                                continuation.resume(Unit)
+                                continuation.resume(Unit) { _, _, _ -> }
                             }
 
                             permissionsToRequest.forEach { perm ->
@@ -260,6 +292,7 @@ fun NavContainer(
         LocalStretchOverscrollCompensationState provides stretchOverscrollCompensationState,
         LocalPermissionRequestInterface provides permissionRequestInterface,
         LocalNavigator provides navigator,
+        LocalRepositoryModuleInstall provides installRepositoryModule,
         LocalDensity provides density,
     ) {
         IntentDispatcher(intentChannel)
@@ -405,8 +438,26 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    OnlineModuleDetailScreen(key.moduleId)
+                    OnlineModuleDetailScreen(key.moduleId, key.repositoryUrl)
                 }
+            }
+            entry<Route.RepositoryModules>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) { ModuleRepoScreen(key.repositoryUrl) }
+            }
+            entry<Route.AddRepository>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) { AddRepositoryScreen() }
             }
             entry<Route.Install>(swipeDismiss = NavSwipeDirection.None) { key ->
                 ManagerNavEntry(
@@ -428,6 +479,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     FlashScreen(key.toFlashIt())
+                }
+            }
+            entry<Route.ScriptRun>(swipeDismiss = NavSwipeDirection.None) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    ScriptRunScreen(key)
                 }
             }
             entry<Route.ExecuteModuleAction>(swipeDismiss = swipeBackDirection) { key ->
@@ -540,6 +602,7 @@ fun NavContainer(
                     InstallLibtgpaScreen()
                 }
             }
+
             entry<Route.Ghostlock>(swipeDismiss = swipeBackDirection) {
                 ManagerNavEntry(
                     interceptPredictiveBack = interceptPredictiveBack,
@@ -551,6 +614,7 @@ fun NavContainer(
                     GhostlockScreen()
                 }
             }
+
             entry<Route.DirtyFrag>(swipeDismiss = swipeBackDirection) {
                 ManagerNavEntry(
                     interceptPredictiveBack = interceptPredictiveBack,
@@ -586,6 +650,7 @@ private fun ManagerNavEntry(
     useBlur: Boolean,
     content: @Composable () -> Unit,
 ) {
+    val transitionRunning = LocalNavTransitionScope.current.isRunning
     val navigationEventState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
         state = navigationEventState,
@@ -606,19 +671,23 @@ private fun ManagerNavEntry(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
+            .onPreviewKeyEvent { transitionRunning }
+            .pointerInput(transitionRunning) {
+                if (transitionRunning) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            event.changes.forEach { it.consume() }
+                        }
+                    }
+                }
+            }
             .then(
-                if (!themeConfig.backgroundImageLoaded) {
-                    Modifier.background(
-                        MaterialTheme.colorScheme.surfaceContainer,
-                    )
-                } else {
-                    Modifier
-                },
+                if (backgroundRenderState.imagePainter == null) Modifier.background(MaterialTheme.colorScheme.surfaceContainer) else Modifier,
             ),
     ) {
         val isPortrait = maxWidth < maxHeight || (maxHeight / maxWidth > 1.4f)
-        val surfaceContainer =
-            MaterialTheme.colorScheme.surfaceContainer
+        val surfaceContainer = MaterialTheme.colorScheme.surfaceContainer
 
         CompositionLocalProvider(
             LocalPortraitState provides isPortrait,
@@ -628,19 +697,23 @@ private fun ManagerNavEntry(
             LocalSnackbarHost provides snackBarHostState,
             LocalBackgroundBlurAnchor provides backgroundBlurAnchorCoordinates,
         ) {
-            backgroundRenderState.imagePainter?.let {
+            backgroundRenderState.imagePainter?.let { painter ->
+                val backgroundBitmap = backgroundRenderState.imageBitmap
+                // Draw the decoded bitmap once available so the background does
+                // not depend on the async painter's crossfade invalidations.
+                val backgroundPainter = remember(backgroundBitmap, painter) {
+                    backgroundBitmap?.let { BitmapPainter(it) } ?: painter
+                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .zIndex(-1f)
-                        .onGloballyPositioned { newCoordinates ->
-                            backgroundBlurAnchorCoordinates =
-                                newCoordinates.takeIf { coordinates ->
-                                    coordinates.isAttached
-                                }
+                        .onGloballyPositioned { coordinates ->
+                            backgroundBlurAnchorCoordinates = coordinates.takeIf {
+                                it.isAttached
+                            }
                         }
                         .paint(
-                            painter = it,
+                            painter = backgroundPainter,
                             contentScale = ContentScale.Crop,
                         )
                         .drawWithContent {
@@ -664,6 +737,7 @@ private fun ManagerNavEntry(
             }
         }
     }
+    BackHandler(enabled = transitionRunning) { }
 }
 
 private fun Route.Flash.toFlashIt(): FlashIt = when (flashType) {

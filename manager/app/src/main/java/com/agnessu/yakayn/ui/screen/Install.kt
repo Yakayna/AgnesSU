@@ -44,6 +44,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -51,6 +52,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,6 +64,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.model.LkmSelection
@@ -76,12 +79,15 @@ import com.agnessu.yakayn.ui.component.settings.SettingsChooseDialog
 import com.agnessu.yakayn.ui.component.settings.SettingsChooseWidget
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
-import com.agnessu.yakayn.ui.screen.kernelFlash.component.SlotSelectionDialog
+import com.agnessu.yakayn.ui.rememberMaterial3BlurBackdrop
+import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurEffect
 import com.agnessu.yakayn.ui.theme.blurSource
+import com.agnessu.yakayn.ui.util.LocalBlurState
 import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.viewmodel.InstallUiEvent
 import com.agnessu.yakayn.ui.viewmodel.InstallViewModel
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -92,6 +98,7 @@ fun InstallScreen(
     val viewModel = koinViewModel<InstallViewModel>()
     val installState by viewModel.state.collectAsStateWithLifecycle()
     val environment = installState.environment
+    val themeConfig: ThemeConfig = koinInject()
     val context = LocalContext.current
 
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -99,8 +106,13 @@ fun InstallScreen(
     val navigator = LocalNavigator.current
     val isGKI = environment.isGki
 
-    LaunchedEffect(isGKI) {
-        if (!isGKI) pagerState.scrollToPage(0)
+    LaunchedEffect(installState.loading, isGKI, preselectedKernelUri) {
+        if (installState.loading) return@LaunchedEffect
+
+        when {
+            preselectedKernelUri != null -> pagerState.scrollToPage(1)
+            !isGKI -> pagerState.scrollToPage(0)
+        }
     }
 
     val failedReboot = stringResource(R.string.failed_reboot)
@@ -119,7 +131,9 @@ fun InstallScreen(
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(scrollBehavior) {
+        snapshotFlow { scrollBehavior.state.heightOffsetLimit }
+            .first { it < 0f }
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
     }
 
@@ -142,62 +156,70 @@ fun InstallScreen(
                 .fillMaxSize()
                 .blurSource(),
         ) { page ->
-            if (installState.loading) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .nestedScroll(scrollBehavior.nestedScrollConnection)
-                        .blurSource(),
-                ) {
-                    item {
-                        Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
-                    }
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(240.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            LoadingIndicator()
+            CompositionLocalProvider(
+                LocalBlurState provides rememberMaterial3BlurBackdrop(
+                    enableBlur = themeConfig.isEnableBlur,
+                    pagerState = pagerState,
+                    pagerPage = page,
+                ),
+            ) {
+                if (installState.loading) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection)
+                            .blurSource(),
+                    ) {
+                        item {
+                            Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
+                        }
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(240.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                LoadingIndicator()
+                            }
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
                         }
                     }
-                    item {
-                        Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
-                    }
-                }
-            } else {
-                when (page) {
-                    0 -> LKMInstallPage(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
-                            .blurSource(),
-                        topPadding = innerPadding.calculateTopPadding(),
-                        bottomPadding = innerPadding.calculateBottomPadding(),
-                        isGKI = environment.isGki,
-                        rootAvailable = environment.rootAvailable,
-                        isAbDevice = environment.isAbDevice,
-                        currentKmi = environment.currentKmi,
-                        supportedKmis = environment.supportedKmis,
-                        activeSlotSuffix = environment.activeSlotSuffix,
-                        inactiveSlotSuffix = environment.inactiveSlotSuffix,
-                        availablePartitions = environment.availablePartitions,
-                        defaultPartition = environment.defaultPartition,
-                    )
+                } else {
+                    when (page) {
+                        0 -> LKMInstallPage(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                                .blurSource(),
+                            topPadding = innerPadding.calculateTopPadding(),
+                            bottomPadding = innerPadding.calculateBottomPadding(),
+                            isGKI = environment.isGki,
+                            rootAvailable = environment.rootAvailable,
+                            isAbDevice = environment.isAbDevice,
+                            currentKmi = environment.currentKmi,
+                            supportedKmis = environment.supportedKmis,
+                            activeSlotSuffix = environment.activeSlotSuffix,
+                            inactiveSlotSuffix = environment.inactiveSlotSuffix,
+                            availablePartitions = environment.availablePartitions,
+                            defaultPartition = environment.defaultPartition,
+                        )
 
-                    1 -> Anykernel3InstallPage(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
-                            .blurSource(),
-                        topPadding = innerPadding.calculateTopPadding(),
-                        bottomPadding = innerPadding.calculateBottomPadding(),
-                        rootAvailable = environment.rootAvailable,
-                        isAbDevice = environment.isAbDevice,
-                        activeSlotSuffix = environment.activeSlotSuffix,
-                        preselectedKernelUri = preselectedKernelUri,
-                    )
+                        1 -> Anykernel3InstallPage(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                                .blurSource(),
+                            topPadding = innerPadding.calculateTopPadding(),
+                            bottomPadding = innerPadding.calculateBottomPadding(),
+                            rootAvailable = environment.rootAvailable,
+                            isAbDevice = environment.isAbDevice,
+                            activeSlotSuffix = environment.activeSlotSuffix,
+                            preselectedKernelUri = preselectedKernelUri,
+                        )
+                    }
                 }
             }
         }
@@ -537,21 +559,17 @@ private fun LKMInstallPage(
         }
 
         item {
-            Column(
+            Button(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
+                enabled = lkmInstallMethod != null,
+                onClick = onClickNext,
             ) {
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = lkmInstallMethod != null,
-                    onClick = onClickNext,
-                ) {
-                    Text(
-                        stringResource(id = R.string.install_next),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                Text(
+                    stringResource(id = R.string.install_next),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
 
@@ -576,7 +594,6 @@ private fun Anykernel3InstallPage(
     var ak3InstallMethod by remember { mutableStateOf<InstallMethod?>(null) }
     var skipKsud by remember { mutableStateOf(false) }
     var showSlotSelectionDialog by remember { mutableStateOf(false) }
-    var tempKernelUri by remember { mutableStateOf<Uri?>(null) }
     var advancedOptionsShown by remember { mutableStateOf(false) }
 
     val ak3AdvRotation by animateFloatAsState(
@@ -589,15 +606,7 @@ private fun Anykernel3InstallPage(
     ) {
         if (it.resultCode == Activity.RESULT_OK) {
             it.data?.data?.let { uri ->
-                if (isAbDevice) {
-                    tempKernelUri = uri
-                    showSlotSelectionDialog = true
-                } else {
-                    ak3InstallMethod = InstallMethod.HorizonKernel(
-                        uri = uri,
-                        summary = summary,
-                    )
-                }
+                ak3InstallMethod = InstallMethod.HorizonKernel(uri = uri, summary = summary)
             }
         }
     }
@@ -606,16 +615,10 @@ private fun Anykernel3InstallPage(
         preselectedKernelUri?.let { uriString ->
             try {
                 val preselectedUri = uriString.toUri()
-                tempKernelUri = preselectedUri
-
-                if (isAbDevice) {
-                    showSlotSelectionDialog = true
-                } else {
-                    ak3InstallMethod = InstallMethod.HorizonKernel(
-                        uri = preselectedUri,
-                        summary = summary,
-                    )
-                }
+                ak3InstallMethod = InstallMethod.HorizonKernel(
+                    uri = preselectedUri,
+                    summary = summary,
+                )
             } catch (_: Exception) {
             }
         }
@@ -624,29 +627,41 @@ private fun Anykernel3InstallPage(
     val onClickNext = {
         (ak3InstallMethod as? InstallMethod.HorizonKernel)?.let { method ->
             method.uri?.let { uri ->
-                navigator.push(
-                    Route.KernelFlash(
-                        kernelUri = uri.toString(),
-                        selectedSlot = method.slot,
-                        skipKsud = skipKsud,
-                    ),
-                )
+                if (isAbDevice) {
+                    showSlotSelectionDialog = true
+                } else {
+                    navigator.push(
+                        Route.KernelFlash(
+                            kernelUri = uri.toString(),
+                            selectedSlot = null,
+                            skipKsud = skipKsud,
+                        ),
+                    )
+                }
             }
         }
     }
 
-    SlotSelectionDialog(
+    SettingsChooseDialog(
         show = showSlotSelectionDialog && isAbDevice,
-        currentSlot = activeSlotSuffix.removePrefix("_")
-            .takeIf { it == "a" || it == "b" },
+        title = stringResource(R.string.select_slot_title),
+        items = listOf(stringResource(R.string.slot_a), stringResource(R.string.slot_b)),
+        selectedIndex = when (activeSlotSuffix.removePrefix("_")) {
+            "b" -> 1
+            else -> 0
+        },
         onDismiss = { showSlotSelectionDialog = false },
-        onSlotSelected = { slot ->
-            showSlotSelectionDialog = false
-            ak3InstallMethod = InstallMethod.HorizonKernel(
-                uri = tempKernelUri,
-                slot = slot,
-                summary = summary,
-            )
+        onSelectedIndexChange = { index ->
+            val method = ak3InstallMethod as? InstallMethod.HorizonKernel
+            method?.uri?.let { uri ->
+                navigator.push(
+                    Route.KernelFlash(
+                        kernelUri = uri.toString(),
+                        selectedSlot = if (index == 1) "b" else "a",
+                        skipKsud = skipKsud,
+                    ),
+                )
+            }
         },
     )
 
@@ -680,22 +695,6 @@ private fun Anykernel3InstallPage(
                                 )
                             },
                         )
-                    }
-
-                    (ak3InstallMethod as? InstallMethod.HorizonKernel)?.slot?.let { slot ->
-                        item {
-                            SettingsBaseWidget(
-                                title = stringResource(
-                                    id = R.string.selected_slot,
-                                    if (slot == "a") {
-                                        stringResource(id = R.string.slot_a)
-                                    } else {
-                                        stringResource(id = R.string.slot_b)
-                                    },
-                                ),
-                                onClick = null,
-                            )
-                        }
                     }
                 }
             }
@@ -745,23 +744,19 @@ private fun Anykernel3InstallPage(
         }
 
         item {
-            Column(
+            Button(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
+                enabled = ak3InstallMethod != null,
+                onClick = {
+                    onClickNext()
+                },
             ) {
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = ak3InstallMethod != null,
-                    onClick = {
-                        onClickNext()
-                    },
-                ) {
-                    Text(
-                        stringResource(id = R.string.install_next),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
+                Text(
+                    stringResource(id = R.string.install_next),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
 

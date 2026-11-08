@@ -123,13 +123,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.data.settings.SettingsPlatformRepository
+import com.agnessu.yakayn.domain.model.DocumentFormat
+import com.agnessu.yakayn.domain.model.DocumentPolicy
 import com.agnessu.yakayn.domain.model.InstalledModule
 import com.agnessu.yakayn.domain.model.MetaModuleStatus
+import com.agnessu.yakayn.domain.model.ModuleReadme
+import com.agnessu.yakayn.domain.model.ModuleUpdateVerification
 import com.agnessu.yakayn.domain.usecase.EnqueueDownloadUseCase
 import com.agnessu.yakayn.domain.usecase.ExtractModuleNameUseCase
-import com.agnessu.yakayn.domain.usecase.FetchRemoteTextUseCase
 import com.agnessu.yakayn.domain.usecase.IsModuleUriAccessibleUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveDownloadUseCase
+import com.agnessu.yakayn.domain.usecase.PeekOneshotScriptUseCase
 import com.agnessu.yakayn.domain.usecase.TakeModuleUriPermissionUseCase
 import com.agnessu.yakayn.ui.component.ConfirmResult
 import com.agnessu.yakayn.ui.component.InstallConfirmationDialog
@@ -158,6 +162,7 @@ import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.Shortcut
 import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
 import com.agnessu.yakayn.ui.util.downloader.download
+import com.agnessu.yakayn.ui.util.downloader.downloadFailureMessage
 import com.agnessu.yakayn.ui.util.showReplacingSnackbar
 import com.agnessu.yakayn.ui.viewmodel.HomeViewModel
 import com.agnessu.yakayn.ui.viewmodel.ModuleUiAction
@@ -185,6 +190,7 @@ fun ModulePage(bottomPadding: Dp) {
     val takeModuleUriPermission = koinInject<TakeModuleUriPermissionUseCase>()
     val extractModuleName = koinInject<ExtractModuleNameUseCase>()
     val zipFileDetector = koinInject<ZipFileDetector>()
+    val peekScript = koinInject<PeekOneshotScriptUseCase>()
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val viewModel = koinViewModel<ModuleViewModel>()
@@ -258,6 +264,12 @@ fun ModulePage(bottomPadding: Dp) {
                     snackBarHost.showReplacingSnackbar("Unable to access selected module files")
                     return@launch
                 }
+                selectedModules.singleOrNull()?.let { uri ->
+                    peekScript(uri.toString())?.let { manifest ->
+                        navigator.push(Route.ScriptRun(uri.toString(), offerInstall = true, displayName = manifest.name))
+                        return@launch
+                    }
+                }
                 selectedModules.forEach { it ->
                     val info =
                         withContext(Dispatchers.IO) { zipFileDetector.parseModuleInfo(context, it) }
@@ -277,6 +289,11 @@ fun ModulePage(bottomPadding: Dp) {
                     }
 
                     takeModuleUriPermission(uriString)
+
+                    peekScript(uriString)?.let { manifest ->
+                        navigator.push(Route.ScriptRun(uriString, offerInstall = true, displayName = manifest.name))
+                        return@launch
+                    }
 
                     val info = withContext(Dispatchers.IO) {
                         zipFileDetector.parseModuleInfo(
@@ -546,12 +563,7 @@ private fun getMetaModuleWarningText(
     if (!showWarning) return null
     if (!hasModuleRequireMount) return null
 
-    return when (status) {
-        MetaModuleStatus.MISSING -> context.getString(R.string.no_meta_module_installed)
-        MetaModuleStatus.REMOVED -> context.getString(R.string.meta_module_removed)
-        MetaModuleStatus.DISABLED -> context.getString(R.string.meta_module_disabled)
-        MetaModuleStatus.ACTIVE -> null
-    }
+    return status.resId?.let { context.getString(it) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -594,7 +606,6 @@ private fun ModuleList(
     val shortcut = koinInject<Shortcut>()
     val settings = koinInject<SettingsPlatformRepository>()
     var showMetaModuleWarning by rememberSaveable { mutableStateOf(true) }
-    val fetchRemoteText = koinInject<FetchRemoteTextUseCase>()
     val enqueueDownload = koinInject<EnqueueDownloadUseCase>()
     val observeDownload = koinInject<ObserveDownloadUseCase>()
     val permissionRequestInterface = LocalPermissionRequestInterface.current
@@ -615,7 +626,6 @@ private fun ModuleList(
     val changelogText = stringResource(R.string.module_changelog)
     val downloadingText = stringResource(R.string.module_downloading)
     val startDownloadingText = stringResource(R.string.module_start_downloading)
-    val fetchChangeLogFailed = stringResource(R.string.module_changelog_failed)
 
     LaunchedEffect(viewModel) {
         viewModel.events.collectLatest { event ->
@@ -774,10 +784,6 @@ private fun ModuleList(
         downloadUrl: String,
         fileName: String,
     ) {
-        val changelogResult = loadingDialog.withLoading {
-            fetchRemoteText(changelogUrl)
-        }
-
         val showToast: suspend (String) -> Unit = { msg ->
             withContext(Dispatchers.Main) {
                 Toast.makeText(
@@ -788,19 +794,42 @@ private fun ModuleList(
             }
         }
 
+        val verification = loadingDialog.withLoading { viewModel.resolveUpdate(module) }
+        if (verification == ModuleUpdateVerification.Rejected) {
+            showToast(context.getString(R.string.repo_update_unverifiable))
+            return
+        }
+        val registry = verification as? ModuleUpdateVerification.Registry
+        val canInstall = { registry == null || viewModel.isUpdateCurrent(module, registry) }
+        val changelogResult = if (registry != null) {
+            Result.success(
+                ModuleReadme(
+                    registry.release.descriptionHTML.ifBlank { module.description },
+                    registry.repositoryUrl,
+                    if (registry.release.descriptionHTML.isNotBlank()) DocumentFormat.HTML else DocumentFormat.MARKDOWN,
+                    DocumentPolicy.SameOrigin(registry.repositoryUrl),
+                ),
+            )
+        } else {
+            loadingDialog.withLoading { viewModel.loadUpdateChangelog(changelogUrl, module.updateJson) }
+        }
         val changelog = changelogResult.getOrElse {
-            showToast(fetchChangeLogFailed.format(it.message))
+            showToast(context.getString(R.string.repo_document_error))
             return
         }
 
         val confirmResult = confirmDialog.awaitConfirm(
             changelogText,
-            content = changelog,
-            markdown = true,
+            content = changelog.content,
+            document = changelog,
             confirm = updateText,
         )
 
         if (confirmResult != ConfirmResult.Confirmed) {
+            return
+        }
+        if (!canInstall()) {
+            showToast(context.getString(R.string.repo_update_unverifiable))
             return
         }
 
@@ -811,12 +840,15 @@ private fun ModuleList(
             download(
                 context,
                 permissionRequestInterface,
-                downloadUrl,
+                registry?.zipUrl ?: downloadUrl,
                 fileName,
                 enqueueDownload,
                 observeDownload,
+                expected = registry?.expected,
+                canEnqueue = canInstall,
+                onFailed = { failed -> Toast.makeText(context, downloadFailureMessage(context, failed), Toast.LENGTH_LONG).show() },
                 onDownloaded = { uri ->
-                    onUpdateModule(uri)
+                    if (canInstall()) onUpdateModule(uri)
                 },
                 onDownloading = {
                     launch(Dispatchers.Main) {
@@ -865,14 +897,6 @@ private fun ModuleList(
             ?.takeIf { it.isNotBlank() }
             ?.let { "su:$it" }
         openShortcutDialogForType(shortcutType)
-        if (module.hasActionScript && module.hasWebUi) {
-            selectedShortcutType = null
-            openShortcutDialogForType(ShortcutType.Action)
-        } else if (module.hasActionScript) {
-            openShortcutDialogForType(ShortcutType.Action)
-        } else if (module.hasWebUi) {
-            openShortcutDialogForType(ShortcutType.WebUI)
-        }
     }
 
     PullToRefreshBox(

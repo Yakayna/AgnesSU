@@ -1,5 +1,6 @@
 package com.agnessu.yakayn.ui.viewmodel
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.domain.model.AllowlistOperationResult
 import com.agnessu.yakayn.domain.model.InstalledAppGroup
+import com.agnessu.yakayn.domain.model.SuperUserLoadFailure
 import com.agnessu.yakayn.domain.usecase.BackupAllowlistUseCase
 import com.agnessu.yakayn.domain.usecase.GetBooleanPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.GetManagerRuntimeInfoUseCase
@@ -27,7 +29,7 @@ import com.agnessu.yakayn.domain.usecase.SetBooleanPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.SetStringPreferenceUseCase
 import com.agnessu.yakayn.domain.usecase.TransliterateTextUseCase
 
-enum class SortType(val displayNameRes: Int, val persistKey: String) {
+enum class SortType(@param:StringRes val displayNameRes: Int, val persistKey: String) {
     NAME(R.string.sort_name, "NAME"),
     INSTALL_TIME(R.string.sort_install_time, "INSTALL_TIME"),
     UPDATE_TIME(R.string.sort_update_time, "UPDATE_TIME"),
@@ -47,10 +49,12 @@ data class SuperUserUiState(
     val currentSortType: SortType = SortType.NAME,
     val reverseOrder: Boolean = false,
     val managerUids: Set<Int> = emptySet(),
-    val isRefreshing: Boolean = false,
+    val isRefreshing: Boolean = true,
+    val loadFailure: SuperUserLoadFailure? = null,
 )
 
 sealed interface SuperUserUiAction {
+    data object LoadInitialData : SuperUserUiAction
     data object Refresh : SuperUserUiAction
     data class BackupAllowlist(val uri: String) : SuperUserUiAction
     data class RestoreAllowlist(val uri: String) : SuperUserUiAction
@@ -62,7 +66,6 @@ sealed interface SuperUserUiAction {
 }
 
 sealed interface SuperUserUiEvent {
-    data class Error(val message: String) : SuperUserUiEvent
     data class AllowlistOperationFinished(
         val result: AllowlistOperationResult,
         val restore: Boolean,
@@ -131,13 +134,16 @@ class SuperUserViewModel(
             currentSortType = local.sortType,
             reverseOrder = local.reverseOrder,
             managerUids = uids,
-            isRefreshing = source.refreshing,
+            isRefreshing = source.refreshing || (!source.hasLoaded && source.loadFailure == null),
+            loadFailure = source.loadFailure,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SuperUserUiState())
     val uiState: StateFlow<SuperUserUiState> = state
 
     fun dispatch(action: SuperUserUiAction) {
         when (action) {
+            SuperUserUiAction.LoadInitialData -> if (refreshJob == null || sourceState.value.loadFailure != null) refresh()
+
             SuperUserUiAction.Refresh -> refresh()
 
             is SuperUserUiAction.BackupAllowlist -> viewModelScope.launch {
@@ -187,7 +193,6 @@ class SuperUserViewModel(
 
     suspend fun fetchAppList() {
         refreshSuperUsers()
-            .onFailure { mutableEvents.tryEmit(SuperUserUiEvent.Error(it.message.orEmpty())) }
     }
 
     private fun notifySuperuserStatusChanged() {

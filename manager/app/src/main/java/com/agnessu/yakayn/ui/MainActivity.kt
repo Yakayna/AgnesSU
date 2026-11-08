@@ -17,12 +17,12 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.agnessu.yakayn.domain.model.StartupState
 import com.agnessu.yakayn.domain.usecase.ApplyLanguageUseCase
 import com.agnessu.yakayn.domain.usecase.EnsureManagerInstalledUseCase
 import com.agnessu.yakayn.domain.usecase.ObserveStartupStateUseCase
-import com.agnessu.yakayn.ui.activity.util.ThemeChangeContentObserver
 import com.agnessu.yakayn.ui.activity.util.ThemeUtils
 import com.agnessu.yakayn.ui.theme.KernelSUTheme
 import com.agnessu.yakayn.ui.viewmodel.HomeUiAction
@@ -32,13 +32,10 @@ import com.agnessu.yakayn.ui.viewmodel.ModuleViewModel
 import com.agnessu.yakayn.ui.viewmodel.SettingsUiAction
 import com.agnessu.yakayn.ui.viewmodel.SettingsUiEvent
 import com.agnessu.yakayn.ui.viewmodel.SettingsViewModel
-import com.agnessu.yakayn.ui.viewmodel.SuperUserUiAction
-import com.agnessu.yakayn.ui.viewmodel.SuperUserViewModel
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
-    private val superUserViewModel: SuperUserViewModel by viewModel()
     private val homeViewModel: HomeViewModel by viewModel()
     private val moduleViewModel: ModuleViewModel by viewModel()
     private val settingsViewModel: SettingsViewModel by viewModel()
@@ -48,7 +45,6 @@ class MainActivity : ComponentActivity() {
     private val applyLanguage: ApplyLanguageUseCase by inject()
     private val startupState by lazy { observeStartupState() }
 
-    private lateinit var themeChangeObserver: ThemeChangeContentObserver
     private var isInitialized = false
 
     override fun attachBaseContext(newBase: Context?) {
@@ -73,9 +69,14 @@ class MainActivity : ComponentActivity() {
             splashScreen.setKeepOnScreenCondition {
                 when (startupState.value) {
                     StartupState.Loading -> true
-                    StartupState.Ready -> false
+                    StartupState.Ready -> !homeViewModel.uiState.value.isInitialDataLoaded
                     is StartupState.Failed -> false
                 }
+            }
+
+            // Keep the home state active even when an incoming intent opens another screen.
+            lifecycleScope.launch {
+                homeViewModel.uiState.first { it.isInitialDataLoaded }
             }
 
             lifecycleScope.launch { ensureManagerInstalled() }
@@ -101,7 +102,6 @@ class MainActivity : ComponentActivity() {
 
             // Initialize app state once.
             if (!isInitialized) {
-                initializeViewModels()
                 initializeData()
                 isInitialized = true
             }
@@ -127,29 +127,23 @@ class MainActivity : ComponentActivity() {
         intentChannel.trySend(intent)
     }
 
-    private fun initializeViewModels() {
-        // Register theme change observer.
-        themeChangeObserver = themeUtils.registerThemeChangeObserver(this)
-    }
-
     private fun initializeData() {
         lifecycleScope.launch {
             try {
                 homeViewModel.dispatch(HomeUiAction.Refresh(showIndicator = false))
-                superUserViewModel.dispatch(SuperUserUiAction.Refresh)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
         // Initialize theme settings.
-        themeUtils.initializeThemeSettings(this, settingsViewModel)
+        themeUtils.initializeThemeSettings(settingsViewModel)
     }
 
     override fun onResume() {
         try {
             super.onResume()
-            themeUtils.onActivityResume(this)
+            themeUtils.onActivityResume()
             synchronizeUiSettings()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -167,15 +161,6 @@ class MainActivity : ComponentActivity() {
         try {
             super.onPause()
             themeUtils.onActivityPause()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    override fun onDestroy() {
-        try {
-            themeUtils.unregisterThemeChangeObserver(this, themeChangeObserver)
-            super.onDestroy()
         } catch (e: Exception) {
             e.printStackTrace()
         }

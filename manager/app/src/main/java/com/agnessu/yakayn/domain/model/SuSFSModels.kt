@@ -1,9 +1,12 @@
 package com.agnessu.yakayn.domain.model
 
-enum class SusKstatType {
-    Normal,
-    FullClone,
-    Statically,
+import androidx.annotation.StringRes
+import com.agnessu.yakayn.R
+
+enum class SusKstatType(@param:StringRes val resId: Int) {
+    Normal(R.string.susfs_kstat_subtype_normal),
+    FullClone(R.string.susfs_kstat_subtype_full_clone),
+    Statically(R.string.susfs_kstat_subtype_statically),
 }
 
 enum class UidScheme(val value: Int) {

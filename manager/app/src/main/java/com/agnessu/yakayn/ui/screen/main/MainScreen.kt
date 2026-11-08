@@ -1,6 +1,7 @@
 package com.agnessu.yakayn.ui.screen.main
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.MutatePriority
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +41,6 @@ import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.util.LocalBlurState
 import com.agnessu.yakayn.ui.util.LocalHandlePageChange
-import com.agnessu.yakayn.ui.util.LocalPagerPage
 import com.agnessu.yakayn.ui.util.LocalPagerState
 import com.agnessu.yakayn.ui.util.LocalPortraitState
 import com.agnessu.yakayn.ui.util.LocalSelectedPage
@@ -80,9 +80,11 @@ fun MainScreen(
     }
     val interceptPagerGestures = pagerMode == PagerInterceptionMode.CrossAxisInterceptor
 
-    val handlePageChange: (Int) -> Unit = remember(pagerState, coroutineScope) {
+    val handlePageChange: (Int) -> Unit = remember(pagerState, coroutineScope, pages) {
         { page ->
+            if (page !in pages.indices) return@remember
             uiSelectedPage = page
+
             if (page == pagerState.currentPage) {
                 if (animateJob != null && lastRequestedPage != page) {
                     animateJob?.cancel()
@@ -91,26 +93,25 @@ fun MainScreen(
                     userScrollEnabled = true
                 }
                 lastRequestedPage = page
-            } else {
-                if (animateJob != null && lastRequestedPage == page) {
-                    // Already animating to the requested page
-                } else {
-                    animateJob?.cancel()
-                    animating = true
-                    userScrollEnabled = false
-                    val job = coroutineScope.launch {
-                        try {
-                            pagerState.animateScrollToPage(page)
-                        } finally {
-                            if (animateJob === this) {
-                                userScrollEnabled = true
-                                animating = false
-                                animateJob = null
-                            }
+            } else if (animateJob == null || lastRequestedPage != page) {
+                animateJob?.cancel()
+                animating = true
+                userScrollEnabled = false
+                lastRequestedPage = page
+                animateJob = coroutineScope.launch {
+                    try {
+                        // A held pager gesture owns the scroll mutation at UserInput
+                        // priority. Stop it explicitly so a navigation tap always wins.
+                        pagerState.scroll(MutatePriority.PreventUserInput) { }
+                        pagerState.animateScrollToPage(page)
+                    } finally {
+                        if (animateJob === this) {
+                            animating = false
+                            userScrollEnabled = true
+                            animateJob = null
+                            lastRequestedPage = pagerState.currentPage
                         }
                     }
-                    animateJob = job
-                    lastRequestedPage = page
                 }
             }
         }
@@ -143,7 +144,6 @@ fun MainScreen(
                     ),
                 state = pagerState,
                 userScrollEnabled = userScrollEnabled && !interceptPagerGestures,
-                beyondViewportPageCount = 1,
                 pageNestedScrollConnection = if (interceptPagerGestures) {
                     PagerGestureNestedScrollConnection
                 } else {
@@ -162,7 +162,6 @@ fun MainScreen(
                 val snackBarHostState = remember { SnackbarHostState() }
                 CompositionLocalProvider(
                     LocalSnackbarHost provides snackBarHostState,
-                    LocalPagerPage provides pageIndex,
                     LocalBlurState provides rememberMaterial3BlurBackdrop(
                         enableBlur = themeConfig.isEnableBlur,
                         pagerState = pagerState,
