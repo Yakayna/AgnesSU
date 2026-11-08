@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:manager/app/src/main/java/com/agnessu/yakayn/ui/screen/ExecuteModuleAction.kt
-package com.agnessu.yakayn.ui.screen
-========
-package com.agnessu.yakayn.ui.component
->>>>>>>> upstream-norm-20261108:manager/app/src/main/java/com/agnessu/yakayn/ui/component/ModuleActionOutput.kt
+﻿package com.agnessu.yakayn.ui.component
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -39,18 +35,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-<<<<<<<< HEAD:manager/app/src/main/java/com/agnessu/yakayn/ui/screen/ExecuteModuleAction.kt
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.flow.collectLatest
-import com.agnessu.yakayn.R
-import com.agnessu.yakayn.ui.component.KeyEventBlocker
-import com.agnessu.yakayn.ui.component.SwipeableSnackbarHost
-import com.agnessu.yakayn.ui.component.settings.AppBackButton
-import com.agnessu.yakayn.ui.navigation.LocalNavigator
-========
 import com.agnessu.yakayn.R
 import com.agnessu.yakayn.ui.component.settings.AppBackButton
->>>>>>>> upstream-norm-20261108:manager/app/src/main/java/com/agnessu/yakayn/ui/component/ModuleActionOutput.kt
 import com.agnessu.yakayn.ui.theme.CardConfig
 import com.agnessu.yakayn.ui.theme.ThemeConfig
 import com.agnessu.yakayn.ui.theme.blurEffect
@@ -58,13 +44,6 @@ import com.agnessu.yakayn.ui.theme.blurSource
 import com.agnessu.yakayn.ui.theme.monospaceFontFamily
 import com.agnessu.yakayn.ui.util.LocalSnackbarHost
 import com.agnessu.yakayn.ui.util.adaptiveScaffoldWindowInsets
-<<<<<<<< HEAD:manager/app/src/main/java/com/agnessu/yakayn/ui/screen/ExecuteModuleAction.kt
-import com.agnessu.yakayn.ui.util.showReplacingSnackbar
-import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionUiAction
-import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionUiEvent
-import com.agnessu.yakayn.ui.viewmodel.ExecuteModuleActionViewModel
-========
->>>>>>>> upstream-norm-20261108:manager/app/src/main/java/com/agnessu/yakayn/ui/component/ModuleActionOutput.kt
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
