@@ -785,4 +785,9 @@ If not, AgnesSU can reinstall it now with root before replacing the library.</st
     <string name="superuser_root_access_required">Root access is required to load applications.</string>
     <string name="superuser_service_start_failed">RootService failed to start. Retry to load applications.</string>
     <string name="superuser_packages_load_failed">Failed to load applications from RootService. Please retry.</string>
+    <string name="root_warning_title">READ CAREFULLY BEFORE USE</string>
+    <string name="root_warning_ok">OK</string>
+    <string name="root_warning_ok_countdown">OK (%1$d)</string>
+    <string name="ghostlock_warning_message">If the start button does not appear, your device is not supported. If the device restarts, please boot it up and try again — success is not guaranteed on the first attempt, sometimes it takes 5-6 attempts.</string>
+    <string name="dirtyfrag_warning_message">Root is supported on these kernel branches, excluding Samsung:\nandroid12-5.10,\nandroid13-5.10,\nandroid13-5.15,\nandroid14-5.15,\nandroid15-6.6,\nandroid16-6.12\nIf it reports Device Not Vulnerable, the kernel is patched — do not try again.</string>
 </resources>

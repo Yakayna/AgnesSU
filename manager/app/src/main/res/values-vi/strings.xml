@@ -684,4 +684,9 @@
     <string name="select_slot_description">Vui lòng chọn Slot để Flash Boot</string>
     <string name="selected_slot">Slot đã chọn: %1$s</string>
     <string name="special_category">Đặc biệt</string>
+    <string name="root_warning_title">ĐỌC KỸ TRƯỚC KHI DÙNG</string>
+    <string name="root_warning_ok">OK</string>
+    <string name="root_warning_ok_countdown">OK (%1$d)</string>
+    <string name="ghostlock_warning_message">Nếu nút bắt đầu không hiện thì tức là máy bạn không hỗ trợ. Nếu máy bị restart thì vui lòng mở máy lên và thử lại lần nữa, không có gì đảm bảo là nó sẽ được lần 1 mà có khi phải 5-6 lần.</string>
+    <string name="dirtyfrag_warning_message">Hỗ trợ Root cho các dòng kernel sau trừ Samsung:\nandroid12-5.10,\nandroid13-5.10,\nandroid13-5.15,\nandroid14-5.15,\nandroid15-6.6,\nandroid16-6.12\nNếu báo Device Not Vulnerable thì tức là kernel đã bị patch, đừng thử lại lần nữa.</string>
 </resources>

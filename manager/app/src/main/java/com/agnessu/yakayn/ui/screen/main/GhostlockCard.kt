@@ -8,6 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.agnessu.yakayn.R
+import com.agnessu.yakayn.ui.component.DangerConsentDialog
+import com.agnessu.yakayn.ui.component.rememberCustomDialog
 import com.agnessu.yakayn.ui.navigation.LocalNavigator
 import com.agnessu.yakayn.ui.navigation.Route
 
@@ -20,9 +22,20 @@ fun GhostlockButton(
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.current
+    val warning = rememberCustomDialog { dismiss ->
+        DangerConsentDialog(
+            title = stringResource(R.string.root_warning_title),
+            message = stringResource(R.string.ghostlock_warning_message),
+            onDismiss = dismiss,
+            onConfirm = {
+                dismiss()
+                navigator.push(Route.Ghostlock)
+            },
+        )
+    }
 
     Button(
-        onClick = { navigator.push(Route.Ghostlock) },
+        onClick = { warning.show() },
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
@@ -42,9 +55,20 @@ fun DirtyFragButton(
     modifier: Modifier = Modifier,
 ) {
     val navigator = LocalNavigator.current
+    val warning = rememberCustomDialog { dismiss ->
+        DangerConsentDialog(
+            title = stringResource(R.string.root_warning_title),
+            message = stringResource(R.string.dirtyfrag_warning_message),
+            onDismiss = dismiss,
+            onConfirm = {
+                dismiss()
+                navigator.push(Route.DirtyFrag)
+            },
+        )
+    }
 
     Button(
-        onClick = { navigator.push(Route.DirtyFrag) },
+        onClick = { warning.show() },
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.primary,
