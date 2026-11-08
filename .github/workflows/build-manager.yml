@@ -363,7 +363,7 @@ jobs:
 
   telegram-upload:
     needs: [repack-manager, prepare]
-    if: always() && github.event_name == 'push' && github.ref_name == 'main' && needs.repack-manager.result == 'success'
+    if: always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name == 'main' && needs.repack-manager.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Download Manager release APK
