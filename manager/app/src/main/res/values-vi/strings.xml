@@ -669,6 +669,8 @@
     <string name="libtgpa_pick_file">Chọn libtgpa.so</string>
     <string name="libtgpa_pick_package">Chọn ứng dụng đích</string>
     <string name="libtgpa_reinstall_dialog_msg">Bạn đã cài lại ứng dụng đích chưa?
+
+Nếu chưa, AgnesSU có thể cài lại ngay bằng quyền root trước khi thay thế thư viện.</string>
     <string name="libtgpa_reinstall_dialog_title">Cài lại ứng dụng?</string>
     <string name="libtgpa_reinstall_no">Cài lại giúp tôi</string>
     <string name="libtgpa_reinstall_yes">Đã cài lại rồi</string>
